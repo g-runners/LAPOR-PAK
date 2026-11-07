@@ -1,13 +1,12 @@
 (function () {
 	'use strict';
 
-	var storageKey = 'lapor-pak-reports-v1';
 	var statuses = ['Menunggu ditangani', 'Dalam penanganan', 'Selesai'];
 	var severityOrder = { Tinggi: 3, Sedang: 2, Rendah: 1 };
 	var reports = [];
-	var storageReady = true;
 	var selectedPhoto = null;
 	var previewUrl = '';
+	var csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 	var toastTimer;
 	var list = document.getElementById('report-list');
 	var form = document.getElementById('report-form');
@@ -15,7 +14,73 @@
 	var toast = document.getElementById('toast');
 	var storageError = document.getElementById('storage-error');
 	var photoInput = document.getElementById('report-photo');
+	var cameraFileInput = document.getElementById('camera-file');
 	var photoPreview = document.getElementById('photo-preview');
+	var cameraModal = document.getElementById('camera-modal');
+	var cameraVideo = document.getElementById('camera-video');
+	var cameraStream = null;
+	var reportMap = null;
+	var reportMarker = null;
+	var mapStatus = document.getElementById('map-status');
+	var coordinateInput = document.getElementById('report-coordinates');
+
+	function parseCoordinates(value) {
+		var coordinates = value.split(',').map(function (part) { return Number(part.trim()); });
+		if (coordinates.length !== 2 || !isFinite(coordinates[0]) || !isFinite(coordinates[1]))
+			return null;
+		if (coordinates[0] < -90 || coordinates[0] > 90 || coordinates[1] < -180 || coordinates[1] > 180)
+			return null;
+		return coordinates;
+	}
+
+	function setMapSelection(latlng, centerMap) {
+		coordinateInput.value = latlng.lat.toFixed(6) + ', ' + latlng.lng.toFixed(6);
+		if (!reportMap)
+			return;
+
+		if (reportMarker)
+			reportMarker.setLatLng(latlng);
+		else {
+			reportMarker = window.L.marker(latlng, { draggable: true }).addTo(reportMap);
+			reportMarker.on('dragend', function () {
+				setMapSelection(reportMarker.getLatLng(), false);
+			});
+		}
+
+		if (centerMap)
+			reportMap.setView(latlng, Math.max(reportMap.getZoom(), 16));
+		mapStatus.textContent = 'Titik dipilih: ' + coordinateInput.value;
+	}
+
+	function initializeReportMap() {
+		if (!window.L) {
+			mapStatus.textContent = 'Peta gagal dimuat. Periksa koneksi internet; lokasi GPS tetap bisa digunakan.';
+			return;
+		}
+
+		if (!reportMap) {
+			reportMap = window.L.map('location-map').setView([-6.2383, 107.0257], 14);
+			var tileLayer = window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+				maxZoom: 19,
+				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+			}).addTo(reportMap);
+			tileLayer.on('tileerror', function () {
+				mapStatus.textContent = 'Peta dasar gagal dimuat. Periksa koneksi internet Anda.';
+			});
+			reportMap.on('click', function (event) {
+				setMapSelection(event.latlng, false);
+			});
+		}
+
+		window.requestAnimationFrame(function () {
+			reportMap.invalidateSize();
+			var savedCoordinates = parseCoordinates(coordinateInput.value);
+			if (savedCoordinates)
+				setMapSelection({ lat: savedCoordinates[0], lng: savedCoordinates[1] }, true);
+			else
+				mapStatus.textContent = 'Ketuk peta untuk memilih titik, atau geser pin setelah memilih.';
+		});
+	}
 
 	function escapeHtml(value) {
 		return String(value).replace(/[&<>"']/g, function (character) {
@@ -23,37 +88,38 @@
 		});
 	}
 
-	function loadReports() {
-		try {
-			var saved = localStorage.getItem(storageKey);
-			reports = saved ? JSON.parse(saved) : [];
-			if (!Array.isArray(reports))
-				throw new Error('Format data laporan tidak valid.');
-		}
-		catch (error) {
-			storageReady = false;
-			storageError.hidden = false;
-			console.error('Gagal membaca data LAPOR PAK dari penyimpanan browser.', error);
-			showToast('Data laporan gagal dibaca. Penyimpanan browser perlu diperiksa.');
-			reports = [];
-		}
+	function apiRequest(url, options) {
+		options = options || {};
+		options.headers = Object.assign({}, options.headers || {}, { 'X-CSRF-Token': csrfToken });
+		return fetch(url, options).then(async function (response) {
+			var payload = {};
+			try {
+				payload = await response.json();
+			}
+			catch (error) {
+				if (response.ok)
+					return {};
+			}
+			if (!response.ok)
+				throw new Error(payload.error || 'Permintaan gagal diproses oleh server.');
+			return payload;
+		});
 	}
 
-	function persistReports() {
-		if (!storageReady)
-			return false;
-
+	async function loadReports() {
 		try {
-			localStorage.setItem(storageKey, JSON.stringify(reports));
-			return true;
+			reports = await apiRequest('/api/reports');
+			if (!Array.isArray(reports))
+				throw new Error('Server mengirim format laporan yang tidak valid.');
+			storageError.hidden = true;
 		}
 		catch (error) {
-			storageReady = false;
 			storageError.hidden = false;
-			console.error('Gagal menyimpan data LAPOR PAK ke penyimpanan browser.', error);
-			showToast('Laporan gagal disimpan. Ruang penyimpanan browser mungkin penuh.');
-			return false;
+			console.error('Gagal memuat laporan dari server LAPOR PAK.', error);
+			showToast(error.message || 'Laporan gagal dimuat dari server.');
+			reports = [];
 		}
+		render();
 	}
 
 	function showToast(message) {
@@ -63,15 +129,6 @@
 		toastTimer = window.setTimeout(function () {
 			toast.classList.remove('is-visible');
 		}, 3400);
-	}
-
-	function classifySeverity(text) {
-		var description = text.toLowerCase();
-		if (/\b(amblas|longsor|putus|sangat dalam|lubang besar|membahayakan|kecelakaan|parah)\b/.test(description))
-			return 'Tinggi';
-		if (/\b(lubang|retak|bergelombang|terkelupas|rusak|genangan)\b/.test(description))
-			return 'Sedang';
-		return 'Rendah';
 	}
 
 	function dateLabel(value) {
@@ -87,35 +144,31 @@
 		return 'status-pending';
 	}
 
+	function severityClass(severity) {
+		return severity === 'Tinggi' ? 'high' : severity === 'Sedang' ? 'medium' : 'low';
+	}
+
 	function renderReport(report) {
-		var options = statuses.map(function (status) {
-			return '<option value="' + status + '"' + (report.status === status ? ' selected' : '') + '>' + status + '</option>';
-		}).join('');
+		var severity = severityClass(report.severity);
 		var photo = report.photo
 			? '<img class="report-photo" src="' + report.photo + '" alt="Foto kerusakan: ' + escapeHtml(report.title) + '" />'
 			: '<div class="report-photo report-photo-placeholder" aria-hidden="true">⌁</div>';
-		var proof = report.repairPhoto
-			? '<a class="repair-proof" href="' + report.repairPhoto + '" target="_blank" rel="noopener">▧ Lihat foto perbaikan</a>'
-			: '<label class="repair-upload">' + (report.status === 'Selesai' ? '＋ Tambah foto perbaikan' : '＋ Unggah foto perbaikan') + '<input type="file" accept="image/jpeg,image/png,image/webp" data-action="repair-photo" data-id="' + escapeHtml(report.id) + '" aria-label="Unggah foto setelah perbaikan" /></label>';
 		var rating = report.status === 'Selesai'
 			? '<div class="rating" role="group" aria-label="Penilaian hasil perbaikan"><span class="rating-label">' + (report.rating ? 'Penilaian' : 'Nilai hasil') + '</span>' + [1, 2, 3, 4, 5].map(function (value) {
 				return '<button type="button" class="' + (report.rating >= value ? 'is-selected' : '') + '" data-action="rate" data-id="' + escapeHtml(report.id) + '" data-rating="' + value + '" aria-label="' + value + ' bintang">★</button>';
 			}).join('') + '</div>'
 			: '';
 
-		return '<article class="report-card" data-severity="' + escapeHtml(report.severity) + '">' +
+		return '<article class="report-card" data-severity="' + severity + '">' +
 			photo +
 			'<div class="report-main">' +
-				'<div class="report-topline"><span class="severity-pill severity-' + report.severity.toLowerCase() + '">Kerusakan ' + escapeHtml(report.severity) + '</span><span class="status-pill ' + statusClass(report.status) + '">' + escapeHtml(report.status) + '</span></div>' +
+				'<div class="report-topline"><span class="severity-pill severity-' + severity + '">Kerusakan ' + escapeHtml(report.severity) + '</span><span class="status-pill ' + statusClass(report.status) + '">' + escapeHtml(report.status) + '</span></div>' +
 				'<h3>' + escapeHtml(report.title) + '</h3>' +
 				'<div class="report-location"><span aria-hidden="true">⌖</span>' + escapeHtml(report.location) + (report.coordinates ? ' <span>·</span> <a href="https://www.google.com/maps?q=' + encodeURIComponent(report.coordinates) + '" target="_blank" rel="noopener">Lihat peta</a>' : '') + '</div>' +
 				'<div class="report-meta"><span>▤ ' + dateLabel(report.createdAt) + '</span><span>◉ ' + escapeHtml(report.id) + '</span></div>' +
 				'<p class="report-description">' + escapeHtml(report.description) + '</p>' +
-				(report.repairPhoto ? '<a class="repair-proof repair-proof--inline" href="' + report.repairPhoto + '" target="_blank" rel="noopener">▧ Lihat foto perbaikan</a>' : '') +
 			'</div>' +
-			'<div class="report-controls"><label class="visually-hidden" for="status-' + escapeHtml(report.id) + '">Ubah status ' + escapeHtml(report.title) + '</label><select class="status-select" id="status-' + escapeHtml(report.id) + '" data-action="status" data-id="' + escapeHtml(report.id) + '">' + options + '</select>' +
-				(report.repairPhoto ? '' : proof) + rating +
-			'</div>' +
+			'<div class="report-controls">' + rating + '</div>' +
 		'</article>';
 	}
 
@@ -146,46 +199,119 @@
 	}
 
 	function openForm() {
-		if (!storageReady) {
-			showToast('Formulir dinonaktifkan sampai penyimpanan browser dapat digunakan.');
-			return;
-		}
 		modal.hidden = false;
 		document.body.classList.add('modal-open');
-		window.setTimeout(function () { document.getElementById('report-title').focus(); }, 20);
+		window.setTimeout(function () {
+			initializeReportMap();
+			document.getElementById('report-title').focus();
+		}, 20);
 	}
 
 	function closeForm() {
+		closeCamera();
 		modal.hidden = true;
 		document.body.classList.remove('modal-open');
 	}
 
-	function imageAsDataUrl(file) {
-		return new Promise(function (resolve, reject) {
-			var reader = new FileReader();
-			reader.onerror = function () { reject(new Error('Foto gagal dibaca. Pilih file lain dan coba lagi.')); };
-			reader.onload = function () {
-				var image = new Image();
-				image.onerror = function () { reject(new Error('File foto tidak dapat dibuka.')); };
-				image.onload = function () {
-					var scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
-					var canvas = document.createElement('canvas');
-					canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-					canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-					var context = canvas.getContext('2d');
-					if (!context) {
-						reject(new Error('Foto tidak dapat diproses di browser ini.'));
-						return;
-					}
-					context.fillStyle = '#ffffff';
-					context.fillRect(0, 0, canvas.width, canvas.height);
-					context.drawImage(image, 0, 0, canvas.width, canvas.height);
-					resolve(canvas.toDataURL('image/jpeg', 0.78));
-				};
-				image.src = reader.result;
-			};
-			reader.readAsDataURL(file);
-		});
+	function stopCameraStream() {
+		if (!cameraStream)
+			return;
+		cameraStream.getTracks().forEach(function (track) { track.stop(); });
+		cameraStream = null;
+		cameraVideo.srcObject = null;
+		document.getElementById('camera-capture').disabled = true;
+	}
+
+	function closeCamera() {
+		stopCameraStream();
+		cameraModal.hidden = true;
+	}
+
+	function setReportPhoto(file) {
+		try {
+			var transfer = new DataTransfer();
+			transfer.items.add(file);
+			photoInput.files = transfer.files;
+			photoInput.dispatchEvent(new Event('change', { bubbles: true }));
+			return true;
+		}
+		catch (error) {
+			console.error('Foto dari kamera tidak dapat disiapkan untuk laporan.', error);
+			return false;
+		}
+	}
+
+	function useCameraFile(file) {
+		if (!file)
+			return;
+		if (!setReportPhoto(file))
+			showToast('Foto tidak dapat digunakan. Silakan pilih ulang foto.');
+	}
+
+	async function openCamera() {
+		if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+			cameraFileInput.click();
+			return;
+		}
+
+		cameraModal.hidden = false;
+		document.getElementById('camera-message').textContent = 'Meminta izin kamera...';
+		try {
+			cameraStream = await navigator.mediaDevices.getUserMedia({
+				audio: false,
+				video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+			});
+			cameraVideo.srcObject = cameraStream;
+			await cameraVideo.play();
+			document.getElementById('camera-message').textContent = 'Arahkan kamera ke kondisi jalan yang ingin dilaporkan.';
+			document.getElementById('camera-capture').disabled = false;
+		}
+		catch (error) {
+			closeCamera();
+			if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+				showToast('Izin kamera ditolak. Izinkan kamera di browser atau pilih foto dari perangkat.');
+			}
+			else {
+				showToast('Kamera tidak dapat dibuka. Anda tetap bisa memilih foto dari perangkat.');
+			}
+			console.warn('Kamera untuk foto laporan tidak dapat dibuka.', error);
+			cameraFileInput.click();
+		}
+	}
+
+	function captureCameraPhoto() {
+		if (!cameraVideo.videoWidth || !cameraVideo.videoHeight) {
+			document.getElementById('camera-message').textContent = 'Kamera belum siap. Tunggu sebentar lalu coba lagi.';
+			return;
+		}
+		var canvas = document.getElementById('camera-canvas');
+		var scale = Math.min(1, 1280 / Math.max(cameraVideo.videoWidth, cameraVideo.videoHeight));
+		canvas.width = Math.round(cameraVideo.videoWidth * scale);
+		canvas.height = Math.round(cameraVideo.videoHeight * scale);
+		var context = canvas.getContext('2d');
+		if (!context) {
+			showToast('Foto kamera tidak dapat diproses di browser ini.');
+			return;
+		}
+		context.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+		canvas.toBlob(function (blob) {
+			if (!blob) {
+				showToast('Foto kamera gagal diproses. Silakan coba lagi.');
+				return;
+			}
+			if (blob.size > 5 * 1024 * 1024) {
+				document.getElementById('camera-message').textContent = 'Ukuran foto melebihi 5 MB. Atur kamera ke resolusi lebih rendah lalu ambil ulang.';
+				return;
+			}
+			var photo = new File([blob], 'laporan-jalan-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+			if (setReportPhoto(photo)) {
+				closeCamera();
+				showToast('Foto kamera berhasil dilampirkan.');
+			}
+			else {
+				document.getElementById('camera-message').textContent = 'Foto gagal dilampirkan. Pilih foto dari perangkat.';
+			}
+		}, 'image/jpeg', 0.78);
 	}
 
 	function validateImage(file) {
@@ -203,30 +329,34 @@
 			closeForm();
 			return;
 		}
+		if (event.target === cameraModal || event.target.closest('.camera-close, #camera-cancel')) {
+			closeCamera();
+			return;
+		}
 		if (event.target === modal) {
 			closeForm();
 			return;
 		}
 		var ratingButton = event.target.closest('[data-action="rate"]');
 		if (ratingButton) {
-			var ratedReport = reports.find(function (report) { return report.id === ratingButton.dataset.id; });
-			if (!ratedReport)
-				return;
-			var previousRating = ratedReport.rating;
-			ratedReport.rating = Number(ratingButton.dataset.rating);
-			if (persistReports()) {
-				render();
+			apiRequest('/api/reports/' + encodeURIComponent(ratingButton.dataset.id) + '/rating', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ rating: Number(ratingButton.dataset.rating) })
+			}).then(function () {
 				showToast('Terima kasih atas penilaian Anda.');
-			}
-			else {
-				ratedReport.rating = previousRating;
-				render();
-			}
+				return loadReports();
+			}).catch(function (error) {
+				showToast(error.message || 'Penilaian gagal dikirim.');
+				console.error('Penilaian laporan gagal dikirim.', error);
+			});
 		}
 	});
 
 	document.addEventListener('keydown', function (event) {
-		if (event.key === 'Escape' && !modal.hidden)
+		if (event.key === 'Escape' && !cameraModal.hidden)
+			closeCamera();
+		else if (event.key === 'Escape' && !modal.hidden)
 			closeForm();
 	});
 
@@ -256,8 +386,7 @@
 		}
 		message.textContent = 'Meminta akses lokasi...';
 		navigator.geolocation.getCurrentPosition(function (position) {
-			var coordinates = position.coords.latitude.toFixed(5) + ', ' + position.coords.longitude.toFixed(5);
-			document.getElementById('report-coordinates').value = coordinates;
+			setMapSelection({ lat: position.coords.latitude, lng: position.coords.longitude }, true);
 			message.textContent = 'Lokasi GPS tercatat. Isi juga nama jalan agar mudah dikenali.';
 		}, function (error) {
 			message.textContent = error.code === error.PERMISSION_DENIED
@@ -267,8 +396,17 @@
 		}, { enableHighAccuracy: true, timeout: 10000 });
 	});
 
-	photoInput.addEventListener('change', function () {
-		selectedPhoto = photoInput.files[0] || null;
+	document.getElementById('camera-button').addEventListener('click', openCamera);
+	document.getElementById('camera-close').addEventListener('click', closeCamera);
+	document.getElementById('camera-cancel').addEventListener('click', closeCamera);
+	document.getElementById('camera-capture').addEventListener('click', captureCameraPhoto);
+	cameraFileInput.addEventListener('change', function () {
+		useCameraFile(cameraFileInput.files[0]);
+		cameraFileInput.value = '';
+	});
+
+	function updatePhotoPreview(file) {
+		selectedPhoto = file || null;
 		document.getElementById('form-error').textContent = '';
 		if (previewUrl)
 			URL.revokeObjectURL(previewUrl);
@@ -285,16 +423,16 @@
 			document.querySelector('.upload-box strong').textContent = 'Pilih foto kerusakan';
 			document.querySelector('.upload-box small').textContent = 'File harus berupa JPG, PNG, atau WebP dan maks. 5 MB';
 		}
+	}
+
+	photoInput.addEventListener('change', function () {
+		updatePhotoPreview(photoInput.files[0]);
 	});
 
 	form.addEventListener('submit', async function (event) {
 		event.preventDefault();
 		var errorBox = document.getElementById('form-error');
 		errorBox.textContent = '';
-		if (!storageReady) {
-			errorBox.textContent = 'Penyimpanan browser tidak tersedia. Laporan belum dapat dikirim.';
-			return;
-		}
 		if (!validateImage(selectedPhoto)) {
 			errorBox.textContent = 'Pilih foto JPG, PNG, atau WebP berukuran maksimal 5 MB.';
 			return;
@@ -302,41 +440,27 @@
 
 		var submitButton = form.querySelector('[type="submit"]');
 		submitButton.disabled = true;
-		submitButton.textContent = 'Memproses foto...';
+		submitButton.textContent = 'Mengirim laporan...';
 		try {
 			var formData = new FormData(form);
-			var title = formData.get('title').trim();
-			var description = formData.get('description').trim();
-			var report = {
-				id: 'LP-' + Date.now().toString(36).slice(-6).toUpperCase(),
-				title: title,
-				location: formData.get('location').trim(),
-				description: description,
-				coordinates: formData.get('coordinates'),
-				severity: classifySeverity(title + ' ' + description),
-				status: statuses[0],
-				photo: await imageAsDataUrl(selectedPhoto),
-				repairPhoto: '',
-				rating: 0,
-				createdAt: new Date().toISOString()
-			};
-			reports.push(report);
-			if (!persistReports()) {
-				reports.pop();
-				return;
-			}
+			await apiRequest('/api/reports', { method: 'POST', body: formData });
 			form.reset();
 			selectedPhoto = null;
+			if (reportMarker) {
+				reportMap.removeLayer(reportMarker);
+				reportMarker = null;
+			}
 			photoPreview.hidden = true;
 			document.querySelector('.upload-box strong').textContent = 'Pilih foto kerusakan';
 			document.querySelector('.upload-box small').textContent = 'Pastikan kondisi jalan terlihat jelas';
 			document.getElementById('location-message').textContent = '';
+			mapStatus.textContent = 'Ketuk peta untuk memilih titik, atau geser pin setelah memilih.';
 			if (previewUrl)
 				URL.revokeObjectURL(previewUrl);
 			previewUrl = '';
 			closeForm();
-			render();
-			showToast('Laporan berhasil disimpan. Tingkat kerusakan diperkirakan dari deskripsi.');
+			await loadReports();
+			showToast('Laporan berhasil dikirim ke server.');
 			document.getElementById('laporan').scrollIntoView({ behavior: 'smooth' });
 		}
 		catch (error) {
@@ -346,52 +470,6 @@
 		finally {
 			submitButton.disabled = false;
 			submitButton.innerHTML = 'Kirim laporan <span>→</span>';
-		}
-	});
-
-	list.addEventListener('change', async function (event) {
-		var control = event.target;
-		var report = reports.find(function (item) { return item.id === control.dataset.id; });
-		if (!report)
-			return;
-		if (control.dataset.action === 'status') {
-			var previousStatus = report.status;
-			report.status = control.value;
-			if (persistReports()) {
-				render();
-				showToast('Status laporan ' + report.id + ' diperbarui.');
-			}
-			else {
-				report.status = previousStatus;
-				render();
-			}
-			return;
-		}
-		if (control.dataset.action === 'repair-photo') {
-			var file = control.files[0];
-			if (!file)
-				return;
-			if (!validateImage(file)) {
-				showToast('Pilih foto JPG, PNG, atau WebP berukuran maksimal 5 MB.');
-				control.value = '';
-				return;
-			}
-			try {
-				var previousPhoto = report.repairPhoto;
-				report.repairPhoto = await imageAsDataUrl(file);
-				if (persistReports()) {
-					render();
-					showToast('Foto perbaikan berhasil disimpan.');
-				}
-				else {
-					report.repairPhoto = previousPhoto;
-					render();
-				}
-			}
-			catch (error) {
-				showToast(error.message || 'Foto perbaikan gagal diproses.');
-				console.error('Foto perbaikan gagal diproses.', error);
-			}
 		}
 	});
 

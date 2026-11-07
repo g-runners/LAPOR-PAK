@@ -5,6 +5,8 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="theme-color" content="#f5f7f6" />
+		<meta name="csrf-token" content="{{ csrf_token() }}" />
+		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 		<link rel="stylesheet" href="assets/css/main.css" />
 	</head>
 	<body class="landing is-preload">
@@ -19,6 +21,8 @@
 									<li><a href="#banner">Beranda</a></li>
 									<li><a href="#dashboard">Dashboard</a></li>
 									<li><a href="#laporan">Daftar laporan</a></li>
+									<li><a href="/map">Peta kondisi jalan</a></li>
+									<li><a href="/operator/login">Login operator</a></li>
 									<li><a href="#laporan" data-open-form>Buat laporan</a></li>
 								</ul>
 							</div>
@@ -34,7 +38,7 @@
 						<li><a href="#dashboard" class="button primary scrolly">Buka Dashboard</a></li>
 					</ul>
 				</div>
-				<a href="#dashboard" class="more scrolly">Lihat laporan jalan</a>
+				<a href="#laporan" class="more scrolly">Lihat laporan jalan</a>
 			</section>
 
 		<div class="app-shell" id="dashboard">
@@ -47,6 +51,8 @@
 				<nav class="side-nav" aria-label="Navigasi utama">
 					<a class="nav-link is-active" href="#dashboard"><span class="nav-icon">▦</span>Dashboard</a>
 					<a class="nav-link" href="#laporan"><span class="nav-icon">◎</span>Semua laporan<span class="nav-count" id="nav-report-count">0</span></a>
+					<a class="nav-link" href="/map"><span class="nav-icon">⌖</span>Peta laporan</a>
+					<a class="nav-link" href="/operator/login"><span class="nav-icon">↗</span>Login operator</a>
 				</nav>
 				<div class="sidebar-help">
 					<span class="help-icon">i</span>
@@ -57,7 +63,7 @@
 				<div class="sidebar-footer"><span class="status-dot"></span>Partisipasi warga, jalan terjaga</div>
 			</aside>
 
-			<main class="main-content" id="dashboard">
+			<main class="main-content" id="dashboard-content">
 				<header class="topbar">
 					<button class="mobile-menu" type="button" aria-label="Buka menu" aria-expanded="false">☰</button>
 					<div class="breadcrumb">LAPOR PAK</div>
@@ -74,8 +80,8 @@
 						<button class="button button-primary" type="button" data-open-form><span class="button-plus">＋</span> Buat laporan</button>
 					</div>
 
-					<div class="notice" role="note"><span>✦</span><p><strong>Analisis kerusakan adalah perkiraan awal</strong> berdasarkan deskripsi laporan, bukan hasil diagnosis AI dari foto. Data tersimpan di browser ini.</p><button type="button" class="notice-close" aria-label="Tutup pemberitahuan">×</button></div>
-					<div class="error-banner" id="storage-error" role="alert" hidden>Data laporan tidak dapat dibaca atau disimpan. Coba muat ulang halaman, dan jangan hapus data browser sebelum laporan tersalin.</div>
+					<div class="notice" role="note"><span>✦</span><p><strong>Prioritas kerusakan merupakan perkiraan awal</strong> dari deskripsi laporan dan bukan diagnosis otomatis dari foto. Perubahan status dan unggah bukti perbaikan dikelola operator.</p><button type="button" class="notice-close" aria-label="Tutup pemberitahuan">×</button></div>
+					<div class="error-banner" id="storage-error" role="alert" hidden>Data laporan belum dapat dimuat dari server. Periksa koneksi aplikasi dan penyimpanan data, lalu muat ulang halaman.</div>
 
 					<section class="stats-grid" aria-label="Ringkasan laporan">
 						<article class="stat-card stat-total"><div class="stat-icon">▤</div><div><span class="stat-label">Total laporan</span><strong id="stat-total">0</strong><span class="stat-foot">Seluruh laporan warga</span></div><span class="stat-decoration">▤</span></article>
@@ -102,28 +108,54 @@
 		</div>
 		<div class="modal-backdrop" id="report-modal" hidden>
 			<section class="report-modal" role="dialog" aria-modal="true" aria-labelledby="form-title">
-				<div class="modal-header"><div><div class="eyebrow"><span class="eyebrow-line"></span>LAPOR KERUSAKAN</div><h2 id="form-title">Buat laporan jalan</h2><p>Lengkapi informasi berikut agar kondisi jalan mudah ditindaklanjuti.</p></div><button class="modal-close" type="button" aria-label="Tutup formulir">×</button></div>
+				<div class="modal-header"><div><div class="eyebrow"><span class="eyebrow-line"></span>LAPOR KERUSAKAN</div><h2 id="form-title">Buat laporan jalan</h2><p>Lengkapi informasi berikut agar kondisi jalan mudah ditindaklanjuti.</p></div><button class="modal-close" type="button" aria-label="Tutup formulir"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button></div>
 				<form id="report-form">
 					<label class="form-label" for="report-title">Jenis kerusakan <span>*</span></label>
-					<input class="form-control" id="report-title" name="title" type="text" maxlength="80" placeholder="Contoh: Lubang besar di badan jalan" required />
+					<select class="form-control" id="report-title" name="title" required>
+						<option value="" disabled selected>Pilih jenis kerusakan</option>
+						<option value="Jalan Berlubang">Jalan Berlubang</option>
+						<option value="Jalan Retak">Jalan Retak</option>
+					</select>
 					<div class="form-row">
 						<div><label class="form-label" for="report-location">Lokasi jalan <span>*</span></label><input class="form-control" id="report-location" name="location" type="text" maxlength="120" placeholder="Nama jalan, kelurahan/kota" required /></div>
-						<button class="button button-location" id="locate-button" type="button"><span>⌖</span> Gunakan lokasi saya</button>
+						<button class="button button-location" id="locate-button" type="button" title="Gunakan lokasi saya" aria-label="Gunakan lokasi saya"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg></button>
 					</div>
 					<input id="report-coordinates" name="coordinates" type="hidden" />
+					<div class="location-picker">
+						<div class="location-picker-heading">
+							<strong>Pilih titik kerusakan</strong>
+							<span>Geser pin atau ketuk peta</span>
+						</div>
+						<div id="location-map" role="application" aria-label="Peta untuk memilih lokasi kerusakan"></div>
+						<div class="map-status" id="map-status" role="status" aria-live="polite">Memuat peta...</div>
+					</div>
 					<div class="location-message" id="location-message" aria-live="polite"></div>
 					<label class="form-label" for="report-description">Ceritakan kondisinya <span>*</span></label>
 					<textarea class="form-control" id="report-description" name="description" rows="3" maxlength="500" placeholder="Jelaskan ukuran atau kondisi kerusakan dan apakah membahayakan pengguna jalan." required></textarea>
 					<div class="form-label photo-label">Foto jalan <span>*</span><small>JPG, PNG, atau WebP · maks. 5 MB</small></div>
 					<label class="upload-box" for="report-photo"><span class="upload-icon">↑</span><strong>Pilih foto kerusakan</strong><small>Pastikan kondisi jalan terlihat jelas</small><img id="photo-preview" alt="Pratinjau foto kerusakan" hidden /></label>
+					<div class="photo-actions"><button class="button camera-button" id="camera-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"></path><circle cx="12" cy="13" r="3.5"></circle></svg> Ambil foto dengan kamera</button></div>
 					<input class="visually-hidden" id="report-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required />
+					<input class="visually-hidden" id="camera-file" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" />
 					<div class="form-error" id="form-error" role="alert"></div>
 					<div class="modal-actions"><button class="button button-quiet modal-cancel" type="button">Batal</button><button class="button button-primary" type="submit">Kirim laporan <span>→</span></button></div>
-					<p class="privacy-note">Laporan disimpan secara lokal pada browser perangkat ini.</p>
+					<p class="privacy-note">Laporan dan foto disimpan pada server LAPOR PAK untuk pemantauan bersama.</p>
 				</form>
 			</section>
 		</div>
+		<div class="camera-backdrop" id="camera-modal" hidden>
+			<section class="camera-dialog" role="dialog" aria-modal="true" aria-labelledby="camera-title">
+				<div class="camera-header">
+					<div><div class="eyebrow"><span class="eyebrow-line"></span>FOTO LAPORAN</div><h2 id="camera-title">Ambil foto jalan</h2></div>
+					<button class="camera-close" id="camera-close" type="button" aria-label="Tutup kamera"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button>
+				</div>
+				<div class="camera-preview"><video id="camera-video" autoplay muted playsinline></video><canvas id="camera-canvas" hidden></canvas></div>
+				<p class="camera-message" id="camera-message" role="status" aria-live="polite">Arahkan kamera ke kondisi jalan yang ingin dilaporkan.</p>
+				<div class="camera-actions"><button class="button button-quiet" id="camera-cancel" type="button">Batal</button><button class="button button-primary" id="camera-capture" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="5"></circle></svg> Ambil foto</button></div>
+			</section>
+		</div>
 		<div class="toast" id="toast" role="status" aria-live="polite"></div>
+		<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 		<script src="assets/js/browser.min.js"></script>
 		<script src="assets/js/breakpoints.min.js"></script>
 		<script src="assets/js/util.js"></script>

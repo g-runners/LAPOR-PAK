@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf }}">
+    <title>Peta Laporan | LAPOR PAK</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/moris.css') }}">
+</head>
+<body class="map-page">
+    <header class="moris-header">
+        <a class="moris-brand" href="/">LAPOR <span>PAK</span></a>
+        <nav aria-label="Navigasi">
+            <a href="/">Beranda</a>
+            <a href="/operator/login">Login operator</a>
+        </nav>
+    </header>
+    <main class="map-layout">
+        <aside class="map-sidebar">
+            <a class="map-back" href="/">← Kembali ke dashboard warga</a>
+            <p class="map-eyebrow">PEMANTAUAN TERBUKA</p>
+            <h1>Peta kondisi jalan</h1>
+            <p class="map-intro">Cari laporan, lihat tingkat kerusakan, status penanganan, dan arah menuju lokasi.</p>
+            <label class="map-field">Cari lokasi atau laporan
+                <input id="map-search" type="search" placeholder="Nama jalan, kerusakan, atau ID">
+            </label>
+            <div class="map-filters">
+                <label class="map-field">Status
+                    <select id="map-status">
+                        <option value="">Semua status</option>
+                        <option>Menunggu ditangani</option>
+                        <option>Dalam penanganan</option>
+                        <option>Selesai</option>
+                    </select>
+                </label>
+                <label class="map-field">Tingkat kerusakan
+                    <select id="map-severity">
+                        <option value="">Semua tingkat</option>
+                        <option>Tinggi</option>
+                        <option>Sedang</option>
+                        <option>Rendah</option>
+                    </select>
+                </label>
+            </div>
+            <section class="map-priority">
+                <div class="map-section-heading">
+                    <div><p class="map-eyebrow">URUTAN PENANGANAN</p><h2>Prioritas kerusakan</h2></div>
+                    <span id="map-result-count" class="map-count">0</span>
+                </div>
+                <div id="map-report-list" class="map-report-list" aria-live="polite"></div>
+            </section>
+            <section id="map-detail" class="map-detail" aria-live="polite">
+                <p class="map-eyebrow">DETAIL LAPORAN</p>
+                <p>Pilih penanda atau laporan untuk melihat detailnya.</p>
+            </section>
+            <p id="map-message" class="map-message" role="status"></p>
+        </aside>
+        <section class="map-canvas-wrap" aria-label="Peta interaktif laporan kerusakan jalan">
+            <div id="report-map"></div>
+            <div class="map-floating-actions">
+                <button id="map-locate" type="button" aria-label="Tampilkan lokasi saya" title="Lokasi saya">◎</button>
+                <button id="map-hide-route" type="button" aria-label="Sembunyikan rute" title="Sembunyikan rute">╳</button>
+            </div>
+            <div class="map-legend"><span class="legend-high"></span> Tinggi <span class="legend-medium"></span> Sedang <span class="legend-low"></span> Rendah</div>
+        </section>
+    </main>
+    <script>window.laporPakReports = {{ reports|tojson }};</script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script src="{{ url_for('static', filename='js/map.js') }}"></script>
+</body>
+</html>

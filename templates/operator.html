@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf }}">
+    <title>Dashboard Operator | LAPOR PAK</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/moris.css') }}">
+</head>
+<body class="operator-page">
+    <header class="moris-header">
+        <a class="moris-brand" href="/">LAPOR <span>PAK</span></a>
+        <nav aria-label="Navigasi">
+            <a href="/">Ruang warga</a>
+            <a href="/map">Peta laporan</a>
+            <form action="{{ url_for('operator_logout') }}" method="post">
+                <input type="hidden" name="_csrf_token" value="{{ csrf }}">
+                <button class="logout-button" type="submit">Keluar ({{ username }})</button>
+            </form>
+        </nav>
+    </header>
+    <main class="operator-main">
+        <div class="operator-heading">
+            <div><p class="map-eyebrow">PENGELOLAAN LAPORAN</p><h1>Dashboard operator</h1><p>Pantau prioritas dan tindak lanjut laporan warga.</p></div>
+            <a class="operator-secondary" href="/map">Lihat peta publik ↗</a>
+        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="operator-flash {{ category }}" role="status">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        <section class="operator-stats" aria-label="Statistik laporan">
+            <article><span>Total laporan</span><strong>{{ statistics.total }}</strong></article>
+            <article><span>Menunggu ditangani</span><strong>{{ statistics.pending }}</strong></article>
+            <article><span>Dalam penanganan</span><strong>{{ statistics.processing }}</strong></article>
+            <article><span>Selesai</span><strong>{{ statistics.completed }}</strong></article>
+        </section>
+        <section class="operator-create">
+            <div><p class="map-eyebrow">CRUD DATA</p><h2>Tambah laporan</h2></div>
+            <form action="{{ url_for('operator_create_report') }}" method="post" enctype="multipart/form-data" class="operator-form">
+                <input type="hidden" name="_csrf_token" value="{{ csrf }}">
+                <label class="map-field">Jenis kerusakan<input name="title" maxlength="80" required></label>
+                <label class="map-field">Lokasi jalan<input name="location" maxlength="120" required></label>
+                <label class="map-field field-wide">Deskripsi<textarea name="description" maxlength="500" required></textarea></label>
+                <label class="map-field">Koordinat<input name="coordinates" placeholder="-6.238300, 107.025700"></label>
+                <label class="map-field">Status<select name="status"><option>Menunggu ditangani</option><option>Dalam penanganan</option><option>Selesai</option></select></label>
+                <label class="map-field">Foto laporan<input type="file" name="photo" accept="image/jpeg,image/png,image/webp"></label>
+                <div class="field-wide"><button class="operator-primary" type="submit">Simpan laporan</button></div>
+            </form>
+        </section>
+        <section class="operator-reports">
+            <div class="operator-section-heading"><div><p class="map-eyebrow">DATA TERDAFTAR</p><h2>Semua laporan</h2></div><span>{{ reports|length }} laporan</span></div>
+            {% if reports %}
+                {% for report in reports %}
+                    <article class="operator-report">
+                        <div class="operator-report-summary">
+                            {% if report.photo %}<img src="{{ report.photo }}" alt="Foto {{ report.title }}">{% endif %}
+                            <div><span class="severity-tag severity-{{ report.severity|lower }}">Kerusakan {{ report.severity }}</span><h3>{{ report.title }}</h3><p>{{ report.location }} · {{ report.id }}</p></div>
+                        </div>
+                        <form action="{{ url_for('operator_update_report', report_id=report.id) }}" method="post" enctype="multipart/form-data" class="operator-form operator-edit-form">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf }}">
+                            <label class="map-field">Jenis kerusakan<input name="title" value="{{ report.title }}" maxlength="80" required></label>
+                            <label class="map-field">Lokasi jalan<input name="location" value="{{ report.location }}" maxlength="120" required></label>
+                            <label class="map-field field-wide">Deskripsi<textarea name="description" maxlength="500" required>{{ report.description }}</textarea></label>
+                            <label class="map-field">Koordinat<input name="coordinates" value="{{ report.coordinates }}" placeholder="-6.238300, 107.025700"></label>
+                            <label class="map-field">Status<select name="status">{% for status in ('Menunggu ditangani', 'Dalam penanganan', 'Selesai') %}<option {% if report.status == status %}selected{% endif %}>{{ status }}</option>{% endfor %}</select></label>
+                            <label class="map-field">Ganti foto laporan<input type="file" name="photo" accept="image/jpeg,image/png,image/webp"></label>
+                            <label class="map-field">Foto bukti perbaikan<input type="file" name="repair_photo" accept="image/jpeg,image/png,image/webp"></label>
+                            {% if report.repairPhoto %}<a class="proof-link field-wide" href="{{ report.repairPhoto }}" target="_blank" rel="noopener">Lihat foto bukti perbaikan</a>{% endif %}
+                            <div class="operator-form-actions field-wide"><button class="operator-primary" type="submit">Simpan perubahan</button></div>
+                        </form>
+                        <form action="{{ url_for('operator_delete_report', report_id=report.id) }}" method="post" class="delete-form" onsubmit="return confirm('Hapus laporan {{ report.id }}?');">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf }}">
+                            <button class="operator-danger" type="submit">Hapus laporan</button>
+                        </form>
+                    </article>
+                {% endfor %}
+            {% else %}
+                <div class="map-empty">Belum ada laporan yang masuk.</div>
+            {% endif %}
+        </section>
+    </main>
+</body>
+</html>

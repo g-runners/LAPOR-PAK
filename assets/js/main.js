@@ -1,15 +1,10 @@
-/*
-	Spectral by HTML5 UP
-	html5up.net | @ajlkn
-	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
-*/
-
 (function() {
 	'use strict';
 
 	var body = document.body;
 	var banner = document.getElementById('banner');
 	var header = document.getElementById('header');
+	var dashboardTopbar = document.querySelector('.topbar');
 	var menu = document.getElementById('menu');
 
 	breakpoints({
@@ -41,8 +36,12 @@
 	if (header)
 		util.scrolly('.scrolly', {
 			speed: 1500,
-			offset: function() {
-				return header.offsetHeight;
+			offset: function(anchor) {
+				if (anchor.getAttribute('href') === '#dashboard')
+					return -5;
+				if (anchor.getAttribute('href') === '#laporan')
+					return dashboardTopbar ? Math.max(600, dashboardTopbar.offsetHeight) : header.offsetHeight;
+				return dashboardTopbar ? dashboardTopbar.offsetHeight : header.offsetHeight;
 			}
 		});
 

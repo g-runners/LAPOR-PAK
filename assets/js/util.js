@@ -265,7 +265,8 @@
 		var top = target.getBoundingClientRect().top + window.pageYOffset;
 		if (settings.anchor === 'middle')
 			top -= (window.innerHeight - target.offsetHeight) / 2;
-		top = Math.max(0, top - (typeof settings.offset === 'function' ? settings.offset() : settings.offset));
+		var offset = typeof settings.offset === 'function' ? settings.offset(anchor) : settings.offset;
+		top = Math.max(0, top - offset);
 
 		var start = window.pageYOffset;
 		var distance = top - start;
@@ -281,8 +282,11 @@
 			window.scrollTo(0, start + distance * eased);
 			if (progress < 1)
 				scrollFrame = window.requestAnimationFrame(animate);
-			else
+			else {
+				var finalTop = Math.max(0, window.pageYOffset + target.getBoundingClientRect().top - offset);
+				window.scrollTo(0, finalTop);
 				scrollFrame = null;
+			}
 		}
 
 		scrollFrame = window.requestAnimationFrame(animate);
