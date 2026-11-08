@@ -2,7 +2,6 @@ import { ensureAnonymousSession, getCurrentProfile } from "./auth.js";
 import { detectRoadDamage } from "./detector.js";
 import { fetchReports, insertReport, removePhoto, uploadPhoto } from "./storage.js";
 import { initializeNavigation } from "./ui.js";
-import { mountTurnstile } from "./turnstile.js";
 
 initializeNavigation();
 
@@ -15,18 +14,19 @@ const detectionMessage = document.getElementById("detection-result");
 const measurementMessage = document.getElementById("damage-measurement");
 const reportMessage = document.getElementById("report-message");
 const locationMessage = document.getElementById("location-message");
+const successDialog = document.getElementById("report-success-dialog");
+const closeSuccessDialog = document.getElementById("close-success-dialog");
 const latitudeInput = document.getElementById("latitude");
 const longitudeInput = document.getElementById("longitude");
 const addressInput = document.getElementById("address");
-const captchaMessage = document.getElementById("captcha-message");
 const submitButton = document.getElementById("submit-report");
 
 let detection = null;
-let captchaToken = "";
-let captchaWidget = null;
 let marker = null;
 let currentObjectUrl = "";
 let detectionSequence = 0;
+
+closeSuccessDialog.addEventListener("click", () => successDialog.close());
 
 function setMessage(element, text, type = "") {
   element.textContent = text;
@@ -62,6 +62,14 @@ if (window.L?.map) {
 }
 
 document.getElementById("use-location").addEventListener("click", () => {
+  if (!window.isSecureContext) {
+    setMessage(
+      locationMessage,
+      "GPS di ponsel memerlukan koneksi HTTPS. Buka situs melalui alamat HTTPS, atau isi alamat/koordinat secara manual.",
+      "error"
+    );
+    return;
+  }
   if (!navigator.geolocation) {
     setMessage(locationMessage, "Browser ini tidak menyediakan Geolocation API.", "error");
     return;
@@ -160,25 +168,6 @@ photoInput.addEventListener("change", async () => {
 
 heightInput.addEventListener("change", runDetection);
 
-async function initializeCaptcha() {
-  try {
-    const { user } = await getCurrentProfile();
-    if (user && !user.is_anonymous) {
-      captchaMessage.textContent = "Akun sudah masuk; pengiriman memakai sesi akun tersebut.";
-      return;
-    }
-    captchaWidget = await mountTurnstile(document.getElementById("turnstile-widget"), (token) => {
-      captchaToken = token;
-    });
-  } catch (error) {
-    captchaMessage.textContent = `Verifikasi belum siap: ${error.message}`;
-    captchaMessage.dataset.type = "error";
-    console.error("Inisialisasi CAPTCHA laporan gagal:", error);
-  }
-}
-
-initializeCaptcha();
-
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   setMessage(reportMessage, "");
@@ -208,7 +197,7 @@ form.addEventListener("submit", async (event) => {
     }
 
     const { user } = await getCurrentProfile();
-    if (!user || user.is_anonymous) await ensureAnonymousSession(captchaToken);
+    if (!user || user.is_anonymous) await ensureAnonymousSession();
     submitButton.disabled = true;
     submitButton.textContent = "Mengirim laporan…";
 
@@ -249,10 +238,10 @@ form.addEventListener("submit", async (event) => {
       map.removeLayer(marker);
       marker = null;
     }
-    if (captchaWidget) captchaWidget.reset();
     setMessage(locationMessage, "");
     setMessage(detectionMessage, "Pilih foto untuk menjalankan deteksi.");
     setMessage(reportMessage, "Laporan berhasil dikirim dengan status Verifikasi.", "success");
+    successDialog.showModal();
   } catch (error) {
     setMessage(reportMessage, `Laporan belum terkirim: ${error.message}`, "error");
     console.error("Pengiriman laporan gagal:", error);

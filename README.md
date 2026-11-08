@@ -1,30 +1,30 @@
 # LAPOR PAK — Lapor dan Pantau Jalan Rusak
 
-Website statis HTML, CSS, dan JavaScript dengan Supabase sebagai Auth, database, dan Storage. Tidak memakai framework, bundler, atau langkah build. Folder `morisv2/` dan `silaporfasum/` tidak diubah.
+* [ ] 
 
-## Jalankan lokal
+## Pengujian lokal (opsional)
 
-Halaman menggunakan JavaScript modules dan perlu dibuka melalui HTTP, bukan `file://`.
+Bagian ini hanya untuk mencoba website di komputer sebelum deploy. Karena halaman memakai JavaScript modules, browser perlu membukanya melalui HTTP, bukan `file://`. Perintah ini menjalankan server lokal sementara dan **tidak diperlukan untuk deploy**.
 
 ```powershell
 py -m http.server 8000
 ```
 
-Buka `http://localhost:8000`. Untuk geolokasi dan CAPTCHA, gunakan localhost atau domain HTTPS yang terdaftar di Supabase dan Cloudflare Turnstile.
+Buka `http://localhost:8000`. Untuk geolokasi, gunakan localhost atau domain HTTPS. Jika dibuka dari ponsel memakai alamat IP komputer melalui HTTP, browser akan memblokir GPS karena itu bukan secure origin. Gunakan URL HTTPS (misalnya setelah deploy ke GitHub Pages) untuk menguji GPS dari ponsel; unggah foto dan pengiriman laporan lainnya tetap bisa dicoba dari jaringan lokal. Saat sudah di-deploy ke GitHub Pages, GitHub menyajikan file website melalui HTTPS secara otomatis; tidak perlu menjalankan Python, backend, atau langkah build.
 
-## Konfigurasi Supabase
+Konfigurasi Supabase
 
 Isi [js/supabase-config.js](./js/supabase-config.js):
 
 ```js
 export const SUPABASE_URL = "https://PROJECT_ID.supabase.co";
 export const SUPABASE_ANON_KEY = "PUBLISHABLE_OR_ANON_KEY";
-export const TURNSTILE_SITE_KEY = "CLOUDFLARE_TURNSTILE_SITE_KEY";
+export const TURNSTILE_SITE_KEY = "";
 ```
 
-Nilai tersebut belum diisi. Gunakan hanya publishable/anon key; jangan pernah menaruh `service_role` key, secret Turnstile, atau kata sandi di file frontend.
+Gunakan hanya publishable/anon key; jangan pernah menaruh `service_role` key atau kata sandi di file frontend.
 
-Aktifkan email/password dan anonymous sign-in pada Supabase Auth. Aktifkan CAPTCHA Cloudflare Turnstile pada **Supabase Dashboard → Authentication → Bot and Abuse Protection**, lalu isi site key di konfigurasi. Secret CAPTCHA disimpan hanya pada pengaturan Supabase. Pengiriman tanpa akun memakai sesi anonymous Auth agar insert tetap berjalan melalui RLS.
+Aktifkan email/password dan anonymous sign-in pada Supabase Auth. CAPTCHA sementara dinonaktifkan di aplikasi; pastikan CAPTCHA Supabase juga nonaktif agar login, pendaftaran, dan pelaporan anonim dapat berjalan. Pengiriman tanpa akun memakai sesi anonymous Auth agar insert tetap berjalan melalui RLS.
 
 Website mengharapkan tabel dan bucket yang sudah disediakan:
 
@@ -47,14 +47,14 @@ Detektor MORIS dijalankan di browser melalui ONNX Runtime Web. Level Ringan/Seda
 
 1. Pastikan file `index.html` berada di root branch/folder publik repository.
 2. Pada **Settings → Pages**, pilih branch dan root folder yang benar.
-3. Isi URL Supabase, anon key, dan Turnstile site key.
+3. Isi URL Supabase dan anon key.
 4. Deploy; tidak ada proses build.
 
 ### Netlify
 
 1. Deploy repository/folder ini sebagai static site.
 2. Kosongkan **Build command** dan set **Publish directory** ke root (`.`).
-3. Isi konfigurasi frontend dan daftar domain HTTPS di Supabase serta Cloudflare Turnstile.
+3. Isi konfigurasi frontend dan daftar domain HTTPS di Supabase.
 
 ## Versi CDN yang dipin
 
@@ -65,7 +65,7 @@ Detektor MORIS dijalankan di browser melalui ONNX Runtime Web. Level Ringan/Seda
 ## Pemeriksaan alur dan RLS
 
 1. Buka `lapor.html`, isi foto JPG/PNG maksimum 5 MB, deskripsi, lokasi, dan (opsional) tinggi kamera; pastikan preview/deteksi muncul.
-2. Kirim tanpa akun setelah Turnstile selesai; pastikan baris berstatus `Verifikasi` dan foto tersimpan di `report-photos`.
+2. Kirim tanpa akun; pastikan baris berstatus `Verifikasi` dan foto tersimpan di `report-photos`.
 3. Masuk sebagai `masyarakat`, coba memperbarui `reports.status` dari DevTools atau REST API; RLS harus menolak update.
 4. Buka `admin.html` sebagai masyarakat; halaman harus ditolak, dan operasi database langsung juga harus ditolak RLS.
 5. Masuk sebagai `petugas`; verifikasi laporan, uji alasan tidak wajar, duplikat, dan transisi status. Pastikan trigger membuat `report_status_logs`.
@@ -73,10 +73,11 @@ Detektor MORIS dijalankan di browser melalui ONNX Runtime Web. Level Ringan/Seda
 7. Pada laporan `Selesai`, unggah foto perbaikan dan kirim rating 1–5. Policy harus menolak rating untuk laporan yang belum selesai.
 8. Pada `peta.html`, coba filter, ekspor kedua file CSV, laporan kosong, dan jaringan lambat/kegagalan RLS.
 
-Penyimpanan dan policy Supabase tidak dapat diuji end-to-end sebelum URL, key, CAPTCHA, serta policy project diisi/dikonfirmasi pemilik project.
+Penyimpanan dan policy Supabase tidak dapat diuji end-to-end sebelum URL, key, pengaturan Auth, serta policy project diisi/dikonfirmasi pemilik project.
 
 ## TODO / batasan yang diketahui
 
+- Aktifkan kembali proteksi CAPTCHA (Turnstile) dan konfigurasikan di Supabase sebelum publikasi.
 - UC-06 pembuatan akun petugas ditunda. Implementasikan kelak lewat Supabase Edge Function atau endpoint tepercaya; jangan gunakan `service_role` key di browser.
 - Pengelompokan radius 2 meter dan prioritas severity lalu jumlah laporan berdekatan dihitung di browser. Pengelompokan berbasis PostGIS/DBSCAN masih TODO.
 - Prioritas MORIS asli mengurutkan `roads.damage_percentage`; sumber kode tidak menyediakan rumus untuk menghitung persentase itu. LAPOR PAK memakai severity sebagai urutan utama dan jumlah laporan dalam radius sebagai pemecah seri.

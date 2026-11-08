@@ -7,7 +7,7 @@ Pemetaan implementasi mengacu pada proposal `laporpak-1-13.pdf` bagian 6 dan ske
 | F-01 | Unggah bukti foto JPG/PNG | `lapor.html`, `js/reports.js`, `js/storage.js` |
 | F-02 | Deskripsi singkat | `lapor.html`, `js/reports.js` |
 | F-03 | GPS, titik peta, atau alamat manual | `lapor.html`, `js/reports.js` |
-| F-04 | Laporan dengan/tanpa login | `js/auth.js`, `js/turnstile.js`, `js/reports.js` |
+| F-04 | Laporan dengan/tanpa login | `js/auth.js`, `js/reports.js` |
 | F-05 | Simpan foto, deskripsi, lokasi, waktu, status awal Verifikasi | `js/reports.js`, `js/storage.js` |
 | F-06 | Peta titik laporan | `peta.html`, `js/map.js` |
 | F-07 | Foto, deskripsi, lokasi, status pada detail | `peta.html`, `js/map.js` |

@@ -1,4 +1,3 @@
-import { TURNSTILE_SITE_KEY } from "./supabase-config.js";
 import { requireSupabaseClient } from "./supabase-client.js";
 import { fetchProfile } from "./storage.js";
 
@@ -17,27 +16,24 @@ export async function getCurrentProfile() {
   return { user, profile };
 }
 
-export async function signIn(email, password, captchaToken) {
+export async function signIn(email, password) {
   const client = requireSupabaseClient();
-  const options = captchaToken ? { options: { captchaToken } } : {};
   const { data, error } = await client.auth.signInWithPassword({
     email,
-    password,
-    ...options
+    password
   });
 
   if (error) throw error;
   return data;
 }
 
-export async function signUp(email, password, nama, captchaToken) {
+export async function signUp(email, password, nama) {
   const client = requireSupabaseClient();
   const { data, error } = await client.auth.signUp({
     email,
     password,
     options: {
-      data: { nama },
-      captchaToken
+      data: { nama }
     }
   });
 
@@ -45,23 +41,16 @@ export async function signUp(email, password, nama, captchaToken) {
   return data;
 }
 
-export async function signInAnonymously(captchaToken) {
-  if (!TURNSTILE_SITE_KEY.trim()) {
-    throw new Error("Isi TURNSTILE_SITE_KEY di js/supabase-config.js.");
-  }
-  if (!captchaToken) throw new Error("Selesaikan verifikasi Turnstile terlebih dahulu.");
-
+export async function signInAnonymously() {
   const client = requireSupabaseClient();
-  const { data, error } = await client.auth.signInAnonymously({
-    options: { captchaToken }
-  });
+  const { data, error } = await client.auth.signInAnonymously();
 
   if (error) throw error;
   if (!data.user) throw new Error("Supabase tidak mengembalikan sesi pengguna anonim.");
   return data.user;
 }
 
-export async function ensureAnonymousSession(captchaToken) {
+export async function ensureAnonymousSession() {
   const client = requireSupabaseClient();
   const { data, error } = await client.auth.getSession();
   if (error) throw error;
@@ -72,7 +61,7 @@ export async function ensureAnonymousSession(captchaToken) {
     const { error: signOutError } = await client.auth.signOut();
     if (signOutError) throw signOutError;
   }
-  return signInAnonymously(captchaToken);
+  return signInAnonymously();
 }
 
 export async function signOut() {

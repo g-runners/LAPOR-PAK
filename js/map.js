@@ -3,7 +3,6 @@ import { NEARBY_RADIUS_METERS } from "./supabase-config.js";
 import { fetchReports, submitRating } from "./storage.js";
 import { initializeNavigation } from "./ui.js";
 import { exportReportsAndStats } from "./export.js";
-import { mountTurnstile } from "./turnstile.js";
 
 initializeNavigation();
 
@@ -27,8 +26,6 @@ if (map) {
 let allReports = [];
 let displayedReports = [];
 let activeReport = null;
-let ratingCaptchaToken = "";
-let ratingCaptchaWidget = null;
 
 function setMessage(element, text, type = "") {
   element.textContent = text;
@@ -223,22 +220,6 @@ document.getElementById("export-csv").addEventListener("click", () => {
   }
 });
 
-async function initializeRatingCaptcha() {
-  if (ratingCaptchaWidget) return;
-  try {
-    const { user } = await getCurrentProfile();
-    if (user && !user.is_anonymous) return;
-    ratingCaptchaWidget = await mountTurnstile(
-      document.getElementById("rating-turnstile"),
-      (token) => { ratingCaptchaToken = token; }
-    );
-  } catch (error) {
-    setMessage(ratingMessage, `Verifikasi penilaian belum siap: ${error.message}`, "error");
-    console.error("Inisialisasi CAPTCHA penilaian gagal:", error);
-  }
-}
-
-ratingForm.addEventListener("focusin", initializeRatingCaptcha, { once: true });
 ratingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!activeReport || activeReport.status !== "Selesai") return;
@@ -251,11 +232,10 @@ ratingForm.addEventListener("submit", async (event) => {
     const { user } = await getCurrentProfile();
     const ratingUser = user && !user.is_anonymous
       ? user
-      : await ensureAnonymousSession(ratingCaptchaToken);
+      : await ensureAnonymousSession();
     await submitRating(activeReport.id, ratingUser.id, score);
     setMessage(ratingMessage, "Terima kasih, penilaian berhasil dikirim.", "success");
     ratingForm.reset();
-    if (ratingCaptchaWidget) ratingCaptchaWidget.reset();
   } catch (error) {
     setMessage(ratingMessage, `Penilaian gagal: ${error.message}`, "error");
     console.error("Pengiriman rating gagal:", error);

@@ -3,26 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#12352b">
+  <meta name="theme-color" content="#f3f6f4">
   <title>Pengelolaan laporan — LAPOR PAK</title>
   <link rel="stylesheet" href="./css/site.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js"></script>
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script type="module" src="./js/admin.js"></script>
 </head>
-<body>
-  <header class="site-header">
-    <a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">P</span><span>LAPOR PAK<small>Lapor dan Pantau Jalan Rusak</small></span></a>
+<body class="legacy-page">
+  <header class="moris-header">
+    <a class="moris-brand" href="./index.html">LAPOR <span>PAK</span></a>
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
     <nav id="site-nav" class="site-nav" aria-label="Navigasi utama">
       <a href="./index.html">Beranda</a><a href="./peta.html">Peta &amp; statistik</a><a href="./lapor.html">Buat laporan</a><a href="./login.html">Akun</a><a class="active nav-admin" href="./admin.html" hidden>Petugas</a><button class="link-button" id="logout-button" type="button" hidden>Keluar</button>
     </nav>
   </header>
-  <main class="page-shell">
-    <div class="page-heading">
-      <p class="eyebrow">UC-03 · UC-04 · UC-07 · F-08—F-10</p>
-      <h1>Pengelolaan laporan</h1>
-      <p>Halaman ini memeriksa role dari tabel profiles. RLS tetap menjadi pembatas utama setiap operasi database.</p>
+  <main class="operator-main">
+    <div class="operator-heading">
+      <div class="page-heading">
+        <p class="eyebrow">UC-03 · UC-04 · UC-07 · F-08—F-10</p>
+        <h1>Pengelolaan laporan</h1>
+        <p>Halaman ini memeriksa role dari tabel profiles. RLS tetap menjadi pembatas utama setiap operasi database.</p>
+      </div>
     </div>
     <p id="admin-message" class="form-message" role="status" aria-live="polite">Memeriksa sesi dan role…</p>
     <section id="admin-content" hidden>

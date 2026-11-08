@@ -3,18 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#12352b">
+  <meta name="theme-color" content="#f3f6f4">
   <title>Peta &amp; statistik — LAPOR PAK</title>
   <link rel="stylesheet" href="./css/site.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js"></script>
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module" src="./js/map.js"></script>
 </head>
-<body>
-  <header class="site-header">
-    <a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">P</span><span>LAPOR PAK<small>Lapor dan Pantau Jalan Rusak</small></span></a>
+<body class="legacy-page map-page">
+  <header class="moris-header">
+    <a class="moris-brand" href="./index.html">LAPOR <span>PAK</span></a>
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
     <nav id="site-nav" class="site-nav" aria-label="Navigasi utama">
       <a href="./index.html">Beranda</a><a class="active" href="./peta.html">Peta &amp; statistik</a><a href="./lapor.html">Buat laporan</a><a href="./login.html">Masuk</a><a class="nav-admin" href="./admin.html" hidden>Petugas</a><button class="link-button" id="logout-button" type="button" hidden>Keluar</button>
@@ -22,56 +21,52 @@
   </header>
   <p id="auth-status" class="page-shell form-message" role="status" hidden></p>
 
-  <main class="page-shell">
-    <div class="page-heading">
-      <p class="eyebrow">UC-02 · F-06—F-07 · F-11 · F-12</p>
+  <main class="map-layout">
+    <aside class="map-sidebar">
+      <a class="map-back" href="./index.html">← Kembali ke beranda</a>
+      <p class="map-eyebrow">UC-02 · F-06—F-07 · F-11 · F-12</p>
       <h1>Peta dan statistik laporan</h1>
-      <p>Titik, status, dan ringkasan dihitung dari data yang dapat dibaca sesuai kebijakan RLS.</p>
-    </div>
-    <div class="toolbar">
-      <select id="status-filter" aria-label="Filter status">
-        <option value="">Semua status</option>
-        <option>Verifikasi</option>
-        <option>Belum Ditangani</option>
-        <option>Dalam Proses Perbaikan</option>
-        <option>Selesai</option>
-      </select>
-      <button id="export-csv" class="button button-quiet" type="button">Ekspor CSV</button>
-    </div>
-    <p id="map-message" class="form-message" role="status" aria-live="polite"></p>
-    <section class="stat-grid" id="map-stats" aria-label="Statistik laporan">
-      <article class="stat-card"><span class="stat-label">Total laporan</span><strong data-stat="total">—</strong><span class="stat-foot">Seluruh laporan</span></article>
-      <article class="stat-card"><span class="stat-label">Verifikasi</span><strong data-stat="Verifikasi">—</strong><span class="stat-foot">Menunggu pemeriksaan</span></article>
-      <article class="stat-card"><span class="stat-label">Dalam proses</span><strong data-stat="Dalam Proses Perbaikan">—</strong><span class="stat-foot">Sedang ditangani</span></article>
-      <article class="stat-card"><span class="stat-label">Selesai</span><strong data-stat="Selesai">—</strong><span class="stat-foot">Penanganan selesai</span></article>
-    </section>
-    <p class="inline-message" id="map-loading" role="status">Memuat laporan…</p>
-    <div class="map-layout">
-      <section class="panel map-panel" aria-label="Peta laporan">
-        <div id="report-map" aria-label="Peta lokasi laporan"></div>
+      <p class="map-intro">Titik, status, dan ringkasan laporan yang dapat dibaca sesuai kebijakan RLS.</p>
+      <div class="toolbar map-filters">
+        <select id="status-filter" aria-label="Filter status">
+          <option value="">Semua status</option>
+          <option>Verifikasi</option>
+          <option>Belum Ditangani</option>
+          <option>Dalam Proses Perbaikan</option>
+          <option>Selesai</option>
+        </select>
+        <button id="export-csv" class="button button-quiet button-small" type="button">Ekspor CSV</button>
+      </div>
+      <p id="map-message" class="map-message" role="status" aria-live="polite"></p>
+      <section class="operator-stats map-stats" id="map-stats" aria-label="Statistik laporan">
+        <article class="stat-card"><span>Total laporan</span><strong data-stat="total">—</strong></article>
+        <article class="stat-card"><span>Verifikasi</span><strong data-stat="Verifikasi">—</strong></article>
+        <article class="stat-card"><span>Dalam proses</span><strong data-stat="Dalam Proses Perbaikan">—</strong></article>
+        <article class="stat-card"><span>Selesai</span><strong data-stat="Selesai">—</strong></article>
       </section>
-      <aside class="panel side-panel">
-        <section>
-          <h2>Prioritas pemantauan</h2>
-          <p class="field-hint">Urutan: level kerusakan, lalu jumlah laporan lain dalam radius 2 meter. Perhitungan dilakukan di browser.</p>
-          <div id="priority-list" class="report-list"><div class="loading">Memuat prioritas…</div></div>
-        </section>
-        <section style="margin-top:22px">
-          <h2>Detail laporan</h2>
-          <div id="report-detail" class="empty-state">Pilih titik atau laporan untuk melihat detail.</div>
-          <form id="rating-form" class="form-grid hidden" novalidate>
-            <div class="field full">
-              <label for="rating-score">Nilai penanganan (1–5)</label>
-              <select id="rating-score" required>
-                <option value="">Pilih nilai</option><option value="1">1 — Sangat kurang</option><option value="2">2 — Kurang</option><option value="3">3 — Cukup</option><option value="4">4 — Baik</option><option value="5">5 — Sangat baik</option>
-              </select>
-            </div>
-            <div class="field full"><div id="rating-turnstile" class="turnstile-slot"></div></div>
-            <div class="field full"><button class="button button-primary button-small" type="submit">Kirim penilaian</button><span id="rating-message" class="form-message" role="status"></span></div>
-          </form>
-        </section>
-      </aside>
-    </div>
+      <section class="map-priority">
+        <div class="map-section-heading"><h2>Prioritas pemantauan</h2></div>
+        <p class="field-hint">Urutan: level kerusakan, lalu jumlah laporan lain dalam radius 2 meter.</p>
+        <div id="priority-list" class="map-report-list"><div class="loading">Memuat prioritas…</div></div>
+      </section>
+      <section class="map-detail-section">
+        <div class="map-section-heading"><h2>Detail laporan</h2></div>
+        <div id="report-detail" class="map-empty">Pilih titik atau laporan untuk melihat detail.</div>
+        <form id="rating-form" class="form-grid hidden" novalidate>
+          <div class="field full">
+            <label for="rating-score">Nilai penanganan (1–5)</label>
+            <select id="rating-score" required>
+              <option value="">Pilih nilai</option><option value="1">1 — Sangat kurang</option><option value="2">2 — Kurang</option><option value="3">3 — Cukup</option><option value="4">4 — Baik</option><option value="5">5 — Sangat baik</option>
+            </select>
+          </div>
+          <div class="field full"><button class="button button-primary button-small" type="submit">Kirim penilaian</button><span id="rating-message" class="form-message" role="status"></span></div>
+        </form>
+      </section>
+    </aside>
+    <section class="map-canvas-wrap" aria-label="Peta laporan">
+      <p class="inline-message map-loading" id="map-loading" role="status">Memuat laporan…</p>
+      <div id="report-map" aria-label="Peta lokasi laporan"></div>
+    </section>
   </main>
   <footer class="site-footer"><div class="shell footer-inner"><span><b>LAPOR PAK</b> · Peta visual laporan warga.</span><a href="./lapor.html">Buat laporan</a></div></footer>
 </body>

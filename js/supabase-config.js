@@ -1,7 +1,7 @@
 // Isi dengan URL project dan publishable/anon key milik Anda.
 export const SUPABASE_URL = "https://yrmbuxqdovqdguesydrr.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_eZpais6K36QZ4Lsg2LXodA_SQy5Rmyf";
-export const TURNSTILE_SITE_KEY = "0x4AAAAAAF4Wjoc2eOFWYhnh";
+export const TURNSTILE_SITE_KEY = "";
 
 export const REPORT_PHOTO_BUCKET = "report-photos";
 export const MORIS_MODEL_URL = "./model/moris-bestv4.onnx";

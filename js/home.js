@@ -1,6 +1,10 @@
 import { fetchReports } from "./storage.js";
 import { initializeNavigation } from "./ui.js";
 
+window.requestAnimationFrame(() => {
+  window.setTimeout(() => document.body.classList.remove("is-preload"), 100);
+});
+
 initializeNavigation();
 
 const stats = document.getElementById("home-stats");

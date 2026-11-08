@@ -1,6 +1,5 @@
 import { getCurrentProfile, signIn, signUp } from "./auth.js";
 import { initializeNavigation } from "./ui.js";
-import { mountTurnstile } from "./turnstile.js";
 
 initializeNavigation();
 
@@ -15,8 +14,6 @@ const submitButton = document.getElementById("submit-auth");
 const toggleButton = document.getElementById("toggle-auth-mode");
 const message = document.getElementById("auth-message");
 let creatingAccount = false;
-let captchaToken = "";
-let captchaWidget = null;
 
 function showMessage(text, type = "") {
   message.textContent = text;
@@ -41,19 +38,6 @@ toggleButton.addEventListener("click", () => {
   renderMode();
 });
 
-async function initializeCaptcha() {
-  try {
-    captchaWidget = await mountTurnstile(
-      document.getElementById("login-turnstile"),
-      (token) => { captchaToken = token; }
-    );
-  } catch (error) {
-    showMessage(`CAPTCHA belum siap: ${error.message}`, "error");
-    console.error("Inisialisasi CAPTCHA login gagal:", error);
-  }
-}
-
-initializeCaptcha();
 renderMode();
 
 form.addEventListener("submit", async (event) => {
@@ -64,19 +48,17 @@ form.addEventListener("submit", async (event) => {
     const email = emailInput.value.trim();
     const password = passwordInput.value;
     if (!email || !password) throw new Error("Email dan kata sandi wajib diisi.");
-    if (!captchaToken) throw new Error("Selesaikan verifikasi CAPTCHA terlebih dahulu.");
-
     if (creatingAccount) {
       const nama = nameInput.value.trim();
       if (!nama) throw new Error("Nama wajib diisi.");
-      const result = await signUp(email, password, nama, captchaToken);
+      const result = await signUp(email, password, nama);
       if (!result.session) {
         showMessage("Pendaftaran diterima. Periksa email untuk konfirmasi, lalu masuk.", "success");
         form.reset();
         return;
       }
     } else {
-      await signIn(email, password, captchaToken);
+      await signIn(email, password);
     }
 
     const { user, profile } = await getCurrentProfile();
@@ -93,6 +75,5 @@ form.addEventListener("submit", async (event) => {
     console.error("Autentikasi gagal:", error);
   } finally {
     submitButton.disabled = false;
-    if (captchaWidget) captchaWidget.reset();
   }
 });
