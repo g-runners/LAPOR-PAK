@@ -6,4 +6,5 @@ uploads/*
 !uploads/.gitkeep
 data/*.json
 /silaporfasum
+/morisv2
 README.md

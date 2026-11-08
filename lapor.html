@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#12352b">
+  <title>Buat Laporan — LAPOR PAK</title>
+  <link rel="stylesheet" href="./css/site.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort.min.js"></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="./js/reports.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">P</span><span>LAPOR PAK<small>Lapor dan Pantau Jalan Rusak</small></span></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav id="site-nav" class="site-nav" aria-label="Navigasi utama">
+      <a href="./index.html">Beranda</a><a href="./peta.html">Peta &amp; statistik</a><a class="active" href="./lapor.html">Buat laporan</a><a href="./login.html">Masuk</a><a class="nav-admin" href="./admin.html" hidden>Petugas</a><button class="link-button" id="logout-button" type="button" hidden>Keluar</button>
+    </nav>
+  </header>
+  <p id="auth-status" class="page-shell form-message" role="status" hidden></p>
+
+  <main class="page-shell">
+    <div class="page-heading">
+      <p class="eyebrow">UC-01 · F-01—F-05</p>
+      <h1>Buat laporan jalan rusak</h1>
+      <p>Kirim bukti foto dan lokasi. Anda dapat melapor tanpa akun atau masuk dengan akun LAPOR PAK.</p>
+    </div>
+    <form id="report-form" class="panel form-grid" novalidate>
+      <div class="field full">
+        <div class="inline-note">Foto diproses oleh model deteksi MORIS di browser. Tingkat kerusakan yang ditampilkan adalah perkiraan berdasarkan tinggi kamera, sudut 40°, dan FOV 60°.</div>
+      </div>
+      <div class="field full">
+        <label for="photo">Foto kerusakan <span class="required">*</span></label>
+        <input id="photo" name="photo" type="file" accept="image/jpeg,image/png" required>
+        <small>JPG atau PNG, maksimum 5 MB.</small>
+        <img id="photo-preview" class="file-preview" alt="Pratinjau foto yang dipilih" hidden>
+        <p id="detection-result" class="form-message" role="status">Pilih foto untuk menjalankan deteksi.</p>
+      </div>
+      <div class="field">
+        <label for="camera-height">Perkiraan tinggi kamera (cm)</label>
+        <input id="camera-height" name="camera-height" type="number" min="50" max="300" step="1" inputmode="numeric" placeholder="Contoh: 150">
+        <small>Perkiraan jarak lensa dari permukaan jalan saat foto diambil. Opsional; tanpa nilai ini level kerusakan tidak dihitung.</small>
+      </div>
+      <div class="field">
+        <label for="damage-level">Perkiraan tingkat kerusakan</label>
+        <input id="damage-level" name="damage-level" type="text" readonly placeholder="Belum terukur">
+        <small id="damage-measurement">Hasil deteksi hanya pendukung dan perlu pemeriksaan petugas.</small>
+      </div>
+      <div class="field full">
+        <label for="description">Deskripsi singkat <span class="required">*</span></label>
+        <textarea id="description" name="description" maxlength="1000" required placeholder="Jelaskan kondisi kerusakan dan patokan lokasinya."></textarea>
+      </div>
+      <div class="field full">
+        <label for="address">Alamat atau nama jalan</label>
+        <input id="address" name="address" maxlength="500" autocomplete="street-address" placeholder="Contoh: Jalan Merdeka, dekat halte">
+        <small>Isi alamat, atau pilih titik di peta / gunakan GPS.</small>
+      </div>
+      <div class="field full">
+        <div class="location-grid">
+          <div class="field"><label for="latitude">Latitude</label><input id="latitude" name="latitude" inputmode="decimal" placeholder="-6.200000"></div>
+          <div class="field"><label for="longitude">Longitude</label><input id="longitude" name="longitude" inputmode="decimal" placeholder="106.816666"></div>
+        </div>
+        <div class="form-actions"><button class="button button-quiet button-small" id="use-location" type="button">Gunakan GPS</button><span id="location-message" class="form-message" role="status"></span></div>
+      </div>
+      <div class="field full">
+        <span class="field-label">Pilih titik lokasi di peta</span>
+        <div id="location-map" class="map-panel"><div id="report-map" aria-label="Peta pilih lokasi"></div></div>
+      </div>
+      <div class="field full">
+        <label class="field-label" for="turnstile-widget">Verifikasi pengiriman tanpa akun</label>
+        <div id="turnstile-widget" class="turnstile-slot"></div>
+        <small id="captcha-message">Akun yang sudah masuk tidak memerlukan verifikasi ini.</small>
+      </div>
+      <div class="field full">
+        <div class="form-actions">
+          <button class="button button-primary" id="submit-report" type="submit">Kirim laporan <span aria-hidden="true">→</span></button>
+          <span id="report-message" class="form-message" role="status" aria-live="polite"></span>
+        </div>
+      </div>
+    </form>
+  </main>
+  <footer class="site-footer"><div class="shell footer-inner"><span><b>LAPOR PAK</b> · Laporan disimpan dengan status awal Verifikasi.</span><a href="./peta.html">Lihat peta</a></div></footer>
+</body>
+</html>
