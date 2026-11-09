@@ -138,7 +138,25 @@ function estimateBoxDimensions(detection, image, cameraHeightCm) {
   return { lengthCm: dimensions[0], widthCm: dimensions[1], longestCm, damageLevel };
 }
 
-export async function detectRoadDamage(file, cameraHeightCm = null) {
+export function estimateRoadDamage(result, cameraHeightCm = null) {
+  const image = { width: result.imageWidth, height: result.imageHeight };
+  const detections = result.detections.map((detection) => ({
+    ...detection,
+    estimate: estimateBoxDimensions(detection, image, cameraHeightCm)
+  }));
+  const measured = detections
+    .filter((detection) => detection.estimate)
+    .sort((a, b) => b.estimate.longestCm - a.estimate.longestCm)[0];
+
+  return {
+    ...result,
+    detections,
+    damageLevel: measured?.estimate.damageLevel ?? null,
+    estimatedDimensions: measured?.estimate ?? null
+  };
+}
+
+export async function detectRoadDamage(file) {
   const image = await createImageBitmap(file);
   try {
     const transform = prepareImage(image);
@@ -149,20 +167,12 @@ export async function detectRoadDamage(file, cameraHeightCm = null) {
     const output = outputMap[session.outputNames[0]];
     if (!output) throw new Error("Model deteksi tidak mengembalikan hasil.");
 
-    const detections = decodeDetections(output, image, transform).map((detection) => ({
-      ...detection,
-      estimate: estimateBoxDimensions(detection, image, cameraHeightCm)
-    }));
-    const measured = detections
-      .filter((detection) => detection.estimate)
-      .sort((a, b) => b.estimate.longestCm - a.estimate.longestCm)[0];
+    const detections = decodeDetections(output, image, transform);
 
     return {
       detected: detections.length > 0,
       confidence: detections[0]?.confidence ?? null,
       detections,
-      damageLevel: measured?.estimate.damageLevel ?? null,
-      estimatedDimensions: measured?.estimate ?? null,
       imageWidth: image.width,
       imageHeight: image.height
     };

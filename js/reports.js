@@ -1,5 +1,5 @@
 import { ensureAnonymousSession, getCurrentProfile } from "./auth.js";
-import { detectRoadDamage } from "./detector.js";
+import { detectRoadDamage, estimateRoadDamage } from "./detector.js";
 import { reverseGeocode } from "./geocoding.js";
 import { insertReport, removePhoto, uploadPhoto } from "./storage.js";
 import { hideModal, showModal } from "./ui.js";
@@ -28,6 +28,7 @@ const cameraMessage = document.getElementById("camera-message");
 const cameraCapture = document.getElementById("camera-capture");
 
 let detection = null;
+let cachedInference = null;
 let marker = null;
 let currentObjectUrl = "";
 let detectionSequence = 0;
@@ -120,6 +121,7 @@ function validateImage(file) {
 async function runDetection() {
   const sequence = ++detectionSequence;
   const file = photoInput.files?.[0];
+  let inferencePromise = null;
   detection = null;
   damageLevelInput.value = "";
   measurementMessage.textContent = "";
@@ -135,9 +137,14 @@ async function runDetection() {
       throw new Error("Tinggi kamera harus antara 50 dan 300 cm.");
     }
 
-    setMessage(detectionMessage, "Model deteksi sedang memeriksa foto…");
-    detection = await detectRoadDamage(file, cameraHeightCm);
+    if (cachedInference?.file !== file) {
+      setMessage(detectionMessage, "Model sedang menyiapkan dan memeriksa foto; proses pertama dapat lebih lama…");
+      cachedInference = { file, promise: detectRoadDamage(file) };
+    }
+    inferencePromise = cachedInference.promise;
+    const result = await inferencePromise;
     if (sequence !== detectionSequence) return;
+    detection = estimateRoadDamage(result, cameraHeightCm);
     if (!detection.detected) {
       setMessage(detectionMessage, "Model tidak menemukan pothole pada foto.", "warning");
       return;
@@ -154,6 +161,7 @@ async function runDetection() {
     }
   } catch (error) {
     if (sequence !== detectionSequence) return;
+    if (cachedInference?.promise === inferencePromise) cachedInference = null;
     detection = null;
     setMessage(detectionMessage, `Deteksi gagal: ${error.message}`, "error");
   }
@@ -169,6 +177,7 @@ function clearPreview() {
 photoInput.addEventListener("change", async () => {
   clearPreview();
   const file = photoInput.files?.[0];
+  cachedInference = null;
   if (file) {
     currentObjectUrl = URL.createObjectURL(file);
     preview.src = currentObjectUrl;
@@ -328,6 +337,7 @@ form.addEventListener("submit", async (event) => {
     window.dispatchEvent(new CustomEvent("report-created"));
     form.reset();
     detection = null;
+    cachedInference = null;
     geocodeController?.abort();
     geocodeController = null;
     geocodeSequence += 1;
