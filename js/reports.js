@@ -4,6 +4,7 @@ import { reverseGeocode } from "./geocoding.js";
 import { insertReport, removePhoto, uploadPhoto } from "./storage.js";
 import { hideModal, showModal } from "./ui.js";
 
+const DEFAULT_CAMERA_HEIGHT_CM = 50;
 const form = document.getElementById("report-form");
 const photoInput = document.getElementById("report-photo");
 const cameraFileInput = document.getElementById("camera-file");
@@ -35,6 +36,10 @@ let geocodeController = null;
 let addressTouched = false;
 let cameraStream = null;
 let map = null;
+
+function getCameraHeightCm() {
+  return heightInput.value.trim() ? Number(heightInput.value) : DEFAULT_CAMERA_HEIGHT_CM;
+}
 
 function setMessage(element, text, type = "") {
   element.textContent = text;
@@ -125,7 +130,7 @@ async function runDetection() {
 
   try {
     validateImage(file);
-    const cameraHeightCm = heightInput.value ? Number(heightInput.value) : null;
+    const cameraHeightCm = getCameraHeightCm();
     if (cameraHeightCm !== null && (!Number.isFinite(cameraHeightCm) || cameraHeightCm < 50 || cameraHeightCm > 300)) {
       throw new Error("Tinggi kamera harus antara 50 dan 300 cm.");
     }
@@ -145,7 +150,7 @@ async function runDetection() {
       measurementMessage.textContent = `Perkiraan ukuran ${longestCm.toFixed(1)} × ${widthCm.toFixed(1)} cm; hasil perlu diverifikasi petugas.`;
       setMessage(detectionMessage, `Pothole terdeteksi (${confidence}% confidence).`, "success");
     } else {
-      setMessage(detectionMessage, `Pothole terdeteksi (${confidence}% confidence). Isi tinggi kamera untuk memperkirakan level.`, "warning");
+      setMessage(detectionMessage, `Pothole terdeteksi (${confidence}% confidence), tetapi ukuran belum dapat diperkirakan dari geometri foto.`, "warning");
     }
   } catch (error) {
     if (sequence !== detectionSequence) return;
@@ -275,7 +280,7 @@ form.addEventListener("submit", async (event) => {
   const latitude = coordinateParts.length === 2 ? Number(coordinateParts[0]) : null;
   const longitude = coordinateParts.length === 2 ? Number(coordinateParts[1]) : null;
   const hasCoordinates = coordinateParts.length === 2 && coordinateParts.every(Boolean);
-  const cameraHeightCm = heightInput.value ? Number(heightInput.value) : null;
+  const cameraHeightCm = getCameraHeightCm();
 
   try {
     validateImage(file);

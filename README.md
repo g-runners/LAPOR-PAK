@@ -55,7 +55,7 @@ Pastikan policy RLS mengizinkan pembacaan laporan publik, insert laporan oleh se
 
 Atas persetujuan pengguna, [sql/add_camera_height_cm.sql](./sql/add_camera_height_cm.sql) menambahkan kolom `reports.camera_height_cm`. Jalankan sekali di Supabase SQL Editor sebelum mengirim laporan. Script tidak membuat tabel dan tidak mengubah policy RLS.
 
-Deteksi kerusakan foto dijalankan di browser melalui ONNX Runtime Web. Level Ringan/Sedang/Parah adalah **perkiraan**, memakai tinggi kamera yang diisi pelapor, sudut tetap 40° di bawah horizontal, FOV vertikal tetap 60°, dan asumsi permukaan jalan datar. Angka ini bukan pengukuran lapangan; model dilatih untuk mendeteksi lubang dan kalibrasi estimasinya belum tervalidasi. Jika tinggi kamera kosong atau geometri tidak dapat dihitung, level disimpan sebagai `null`.
+Deteksi kerusakan foto dijalankan di browser melalui ONNX Runtime Web. Level Ringan/Sedang/Parah adalah **perkiraan**, memakai tinggi kamera yang diisi pelapor (default 50 cm), sudut tetap 40° di bawah horizontal, FOV vertikal tetap 60°, dan asumsi permukaan jalan datar. Angka ini bukan pengukuran lapangan; model dilatih untuk mendeteksi lubang dan kalibrasi estimasinya belum tervalidasi. Jika geometri foto tidak dapat dihitung, level dan ukuran disimpan sebagai `null`.
 
 ### Prioritas jalan di peta
 
