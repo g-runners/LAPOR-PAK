@@ -509,7 +509,7 @@ body.map-page {
   .map-sidebar-toggle {
     position: absolute;
     z-index: 550;
-    bottom: 18px;
+    top: 76px;
     left: 12px;
   }
 
@@ -518,10 +518,27 @@ body.map-page {
   }
 
   .map-sidebar-close {
-    align-self: flex-end;
     min-height: 36px;
-    margin: -7px -6px 12px 0;
     padding: 0 10px;
+  }
+
+  .map-sidebar-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .map-sidebar-close {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 520px) {
+  .map-sidebar-toggle {
+    top: 68px;
   }
 }
 

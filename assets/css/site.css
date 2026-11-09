@@ -40,6 +40,12 @@ textarea {
 	border-bottom: 1px solid var(--line);
 }
 
+.operator-page .site-header {
+	position: sticky;
+	top: 0;
+	z-index: 20;
+}
+
 .site-brand {
 	color: var(--ink);
 	font-size: 19px;
