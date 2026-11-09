@@ -4666,15 +4666,15 @@ body.is-mobile.landing #footer {
 
 /* LAPOR PAK application styles */
 :root {
-	--ink: #172a26;
-	--muted: #788780;
-	--line: #e7ece8;
-	--paper: #fff;
-	--canvas: #f5f7f5;
-	--green: #187b5b;
-	--green-dark: #116447;
-	--mint: #e5f3ed;
-	--amber: #d89032;
+	--ink: #111111;
+	--muted: #665f56;
+	--line: #ded5c7;
+	--paper: #fbf8f1;
+	--canvas: #f3EEE3;
+	--accent: #D9541E;
+	--accent-hover: #E96A2E;
+	--mint: #f0dfd3;
+	--amber: #D9541E;
 	--red: #c64b44;
 	--blue: #4a78b8;
 	font-family: 'DM Sans', 'Segoe UI', sans-serif;
@@ -4767,7 +4767,7 @@ a {
 	place-items: center;
 	border-radius: 12px;
 	color: #fff;
-	background: var(--green);
+	background: var(--accent);
 	font: 800 13px 'Manrope', sans-serif;
 	letter-spacing: -.5px;
 }
@@ -4778,7 +4778,7 @@ a {
 }
 
 .brand-name>span {
-	color: var(--green);
+	color: var(--accent);
 }
 
 .brand-name small {
@@ -4817,7 +4817,7 @@ a {
 
 .nav-link:hover,
 .nav-link.is-active {
-	color: var(--green-dark);
+	color: var(--accent-hover);
 	background: #edf6f1;
 }
 
@@ -4855,7 +4855,7 @@ a {
 	place-items: center;
 	border-radius: 50%;
 	background: #e4f2e9;
-	color: var(--green);
+	color: var(--accent);
 	font-weight: 800;
 }
 
@@ -4936,8 +4936,26 @@ a {
 	border: 1px solid #dfe9e2;
 	border-radius: 50%;
 	background: #eff6f0;
-	color: var(--green);
+	color: var(--accent);
 	font-weight: 700;
+}
+
+.logout-button {
+	min-height: 32px;
+	margin-left: 4px;
+	padding: 0 11px;
+	border: 1px solid #dfe9e2;
+	border-radius: 6px;
+	background: #fff;
+	color: var(--accent-hover);
+	font-size: 11px;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.logout-button:hover {
+	border-color: #bad8c5;
+	background: #eff6f0;
 }
 
 .mobile-menu {
@@ -5032,13 +5050,13 @@ h1 {
 }
 
 .button-primary {
-	background: var(--green);
+	background: var(--accent);
 	color: #fff;
 	box-shadow: 0 4px 10px #187b5b20;
 }
 
 .button-primary:hover {
-	background: var(--green-dark);
+	background: var(--accent-hover);
 }
 
 .button-plus {
@@ -5052,7 +5070,7 @@ h1 {
 	padding: 0 9px;
 	border-color: #e5eee7;
 	background: #fff;
-	color: var(--green-dark);
+	color: var(--accent-hover);
 	font-size: 10px;
 }
 
@@ -5071,7 +5089,7 @@ h1 {
 	min-height: 40px;
 	border-color: #dce8df;
 	background: white;
-	color: var(--green-dark);
+	color: var(--accent-hover);
 	font-size: 10px;
 }
 
@@ -5165,7 +5183,7 @@ h1 {
 	place-items: center;
 	border-radius: 8px;
 	background: #eaf4ed;
-	color: var(--green);
+	color: var(--accent);
 	font-size: 16px;
 }
 
@@ -5301,7 +5319,7 @@ h1 {
 	place-items: center;
 	border-radius: 7px;
 	background: #dcefe2;
-	color: var(--green);
+	color: var(--accent);
 	font-size: 17px;
 }
 
@@ -5480,7 +5498,7 @@ h1 {
 }
 
 .repair-upload {
-	color: var(--green);
+	color: var(--accent);
 	font-size: 9px;
 	font-weight: 600;
 	cursor: pointer;
@@ -5542,7 +5560,7 @@ h1 {
 	place-items: center;
 	border-radius: 14px;
 	background: #edf5ef;
-	color: var(--green);
+	color: var(--accent);
 	font-size: 24px;
 }
 
@@ -5583,6 +5601,31 @@ h1 {
 	padding: 22px;
 	background: #17241fb3;
 	backdrop-filter: blur(3px);
+	opacity: 0;
+	transition: opacity .22s ease;
+}
+
+.modal-backdrop[hidden],
+.camera-backdrop[hidden] {
+	display: none;
+}
+
+.modal-backdrop.is-visible,
+.camera-backdrop.is-visible {
+	opacity: 1;
+}
+
+.modal-backdrop .report-modal,
+.camera-backdrop .camera-dialog {
+	opacity: 0;
+	transform: translateY(12px) scale(.98);
+	transition: opacity .22s ease, transform .22s cubic-bezier(.22, 1, .36, 1);
+}
+
+.modal-backdrop.is-visible .report-modal,
+.camera-backdrop.is-visible .camera-dialog {
+	opacity: 1;
+	transform: translateY(0) scale(1);
 }
 
 .report-modal {
@@ -5686,7 +5729,7 @@ textarea.form-control {
 
 .location-message {
 	min-height: 0;
-	color: var(--green);
+	color: var(--accent);
 	font-size: 9px;
 }
 
@@ -5731,7 +5774,7 @@ textarea.form-control {
 	place-items: center;
 	border-radius: 7px;
 	background: #e7f2e9;
-	color: var(--green);
+	color: var(--accent);
 	font-size: 16px;
 }
 
@@ -6046,6 +6089,12 @@ textarea.form-control {
 
 #header {
 	font-family: 'DM Sans', 'Segoe UI', sans-serif;
+	pointer-events: none;
+}
+
+#header nav>ul>li>a,
+#header #menu {
+	pointer-events: auto;
 }
 
 #header h1,
@@ -6881,7 +6930,7 @@ body.dashboard-visible .topbar #nav>ul>li>a.menuToggle::after {
 
 .brand-mark {
 	border-radius: 13px;
-	background: var(--green);
+	background: var(--accent);
 }
 
 .brand-name {
@@ -7577,13 +7626,15 @@ body.dashboard-visible .topbar #nav>ul>li>a.menuToggle::after {
 .camera-backdrop {
 	position: fixed;
 	inset: 0;
-	z-index: 1100;
+	z-index: 10002;
 	display: grid;
 	overflow-y: auto;
 	place-items: center;
 	padding: 20px;
 	background: rgba(15, 27, 22, .76);
 	backdrop-filter: blur(4px);
+	opacity: 0;
+	transition: opacity .22s ease;
 }
 
 .camera-dialog {
@@ -7669,5 +7720,14 @@ body.dashboard-visible .topbar #nav>ul>li>a.menuToggle::after {
 
 	.camera-preview video {
 		max-height: 55vh;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.modal-backdrop,
+	.camera-backdrop,
+	.modal-backdrop .report-modal,
+	.camera-backdrop .camera-dialog {
+		transition-duration: .01ms;
 	}
 }

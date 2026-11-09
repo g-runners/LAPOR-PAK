@@ -1,0 +1,115 @@
+:root {
+  --ink: #111111;
+  --muted: #665f56;
+  --line: #ded5c7;
+  --paper: #fbf8f1;
+  --canvas: #f3EEE3;
+  --accent: #D9541E;
+  --accent-hover: #E96A2E;
+  --mint: #f0dfd3;
+  --amber: #D9541E;
+  --red: #9f351c;
+  --blue: #8e4025;
+  --accent-soft: #f3d9ca;
+  --white: #fbf8f1;
+  color: var(--ink);
+  background: var(--canvas);
+}
+
+body {
+  color: var(--ink);
+  background-color: var(--canvas);
+}
+
+a:hover,
+.moris-header nav > a:hover,
+.logout-button:hover,
+.title-period {
+  color: var(--accent);
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible,
+a:focus-visible {
+  border-color: var(--accent);
+  outline-color: var(--accent);
+}
+
+.button-primary,
+.operator-primary,
+.operator-report-cta,
+.landing #banner .actions .button.primary,
+.map-sidebar-toggle,
+#menu,
+.wrapper.style1 {
+  background-color: var(--accent);
+}
+
+.button-primary,
+.operator-primary,
+.operator-report-cta,
+.landing #banner .actions .button.primary,
+.map-sidebar-toggle {
+  color: var(--ink) !important;
+}
+
+.button-primary:hover,
+.operator-primary:hover,
+.operator-report-cta:hover,
+.landing #banner .actions .button.primary:hover {
+  background-color: var(--accent-hover);
+}
+
+.landing #menu {
+  color: var(--ink);
+}
+
+.landing #menu a {
+  color: var(--ink);
+}
+
+.wrapper.style1,
+.wrapper.style1 p,
+.wrapper.style1 label,
+.wrapper.style1 h2,
+.wrapper.style1 h3,
+.wrapper.style1 h4,
+.wrapper.style1 h5,
+.wrapper.style1 h6,
+.wrapper.style1 button,
+.wrapper.style1 .button {
+  color: var(--ink);
+}
+
+.wrapper.style1 input[type="submit"],
+.wrapper.style1 input[type="reset"],
+.wrapper.style1 input[type="button"],
+.wrapper.style1 button,
+.wrapper.style1 .button {
+  background-color: var(--accent);
+}
+
+.wrapper.style1 input[type="submit"]:hover,
+.wrapper.style1 input[type="reset"]:hover,
+.wrapper.style1 input[type="button"]:hover,
+.wrapper.style1 button:hover,
+.wrapper.style1 .button:hover {
+  background-color: var(--accent-hover);
+}
+
+.map-page .map-sidebar {
+  background-color: rgba(243, 238, 227, .8);
+}
+
+.map-page .map-sidebar-close {
+  color: var(--ink);
+  background-color: rgba(243, 238, 227, .96);
+  border-color: rgba(217, 84, 30, .42);
+}
+
+.map-page .map-sidebar-toggle {
+  color: var(--ink) !important;
+  background-color: var(--accent);
+}

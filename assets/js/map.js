@@ -82,15 +82,19 @@
 	}
 
 	function applyFilters() {
-		var query = document.getElementById('map-search').value.trim().toLowerCase();
-		var status = document.getElementById('map-status').value;
-		var severity = document.getElementById('map-severity').value;
+		var search = document.getElementById('map-search');
+		var statusFilter = document.getElementById('map-status');
+		var severityFilter = document.getElementById('map-severity');
+		var query = search.value.trim().toLowerCase();
+		var status = statusFilter.value;
+		var severity = severityFilter.value;
 		var visibleReports = reports.filter(function (report) {
 			var text = [report.id, report.title, report.location, report.description].join(' ').toLowerCase();
 			return (!query || text.includes(query)) &&
 				(!status || report.status === status) &&
 				(!severity || report.severity === severity);
 		});
+		document.getElementById('map-filter-reset').hidden = !(query || status || severity);
 
 		markers.forEach(function (marker, id) {
 			var visible = visibleReports.some(function (report) { return String(report.id) === id; });
@@ -160,6 +164,21 @@
 	document.getElementById('map-search').addEventListener('input', applyFilters);
 	document.getElementById('map-status').addEventListener('change', applyFilters);
 	document.getElementById('map-severity').addEventListener('change', applyFilters);
+	document.getElementById('map-filter-reset').addEventListener('click', function () {
+		document.getElementById('map-search').value = '';
+		document.getElementById('map-status').value = '';
+		document.getElementById('map-severity').value = '';
+		applyFilters();
+	});
+	document.querySelectorAll('[data-toggle-panel]').forEach(function (button) {
+		button.addEventListener('click', function () {
+			var panel = document.getElementById(button.dataset.togglePanel);
+			var expanded = button.getAttribute('aria-expanded') === 'true';
+			panel.hidden = expanded;
+			button.setAttribute('aria-expanded', String(!expanded));
+			button.classList.toggle('is-active', !expanded);
+		});
+	});
 	document.getElementById('map-report-list').addEventListener('click', function (event) {
 		var button = event.target.closest('[data-report-id]');
 		if (!button) return;

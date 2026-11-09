@@ -3,48 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f3f6f4">
-  <title>Masuk — LAPOR PAK</title>
-  <link rel="stylesheet" href="./css/site.css">
+  <meta name="theme-color" content="#f3EEE3">
+  <title>Masuk | LAPOR PAK</title>
+  <link rel="stylesheet" href="./assets/css/moris.css">
+  <link rel="stylesheet" href="./assets/css/theme.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js"></script>
-  <script type="module" src="./js/login.js"></script>
 </head>
-<body class="legacy-page">
-  <header class="moris-header">
+<body class="operator-login-page">
+  <main class="login-card">
     <a class="moris-brand" href="./index.html">LAPOR <span>PAK</span></a>
-    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
-    <nav id="site-nav" class="site-nav" aria-label="Navigasi utama">
-      <a href="./index.html">Beranda</a><a href="./peta.html">Peta &amp; statistik</a><a href="./lapor.html">Buat laporan</a><a class="active" href="./login.html">Masuk</a><a class="nav-admin" href="./admin.html" hidden>Petugas</a><button class="link-button" id="logout-button" type="button" hidden>Keluar</button>
-    </nav>
-  </header>
-  <main class="operator-login-page">
-    <section class="login-card">
-      <p class="map-eyebrow">AKUN LAPOR PAK</p>
-      <h1 id="auth-title">Masuk</h1>
-      <p id="auth-description">Masuk untuk membuka fitur sesuai tingkat akses Anda.</p>
-      <form id="auth-form" class="form-grid" novalidate>
-      <div class="field full" id="name-field" hidden>
-        <label for="nama">Nama <span class="required">*</span></label>
-        <input id="nama" name="nama" maxlength="120" autocomplete="name">
-      </div>
-      <div class="field full">
-        <label for="email">Email <span class="required">*</span></label>
-        <input id="email" name="email" type="email" autocomplete="email" required>
-      </div>
-      <div class="field full">
-        <label for="password">Kata sandi <span class="required">*</span></label>
-        <input id="password" name="password" type="password" autocomplete="current-password" minlength="8" required>
-      </div>
-      <div class="field full">
-        <div class="form-actions">
-          <button class="button button-primary" id="submit-auth" type="submit">Masuk</button>
-          <button class="button button-quiet" id="toggle-auth-mode" type="button">Buat akun masyarakat</button>
-        </div>
-        <p id="auth-message" class="form-message" role="status" aria-live="polite"></p>
-      </div>
-      </form>
-    </section>
+    <p class="map-eyebrow">RUANG PENGELOLA</p>
+    <h1 id="auth-title">Masuk LAPOR PAK</h1>
+    <p id="auth-description">Masuk untuk mengelola laporan dan progres perbaikan jalan.</p>
+    <div class="operator-flash" id="auth-message" role="alert" hidden></div>
+    <form id="auth-form" novalidate>
+      <label class="map-field">Email
+        <input id="email" type="email" autocomplete="email" required>
+      </label>
+      <label class="map-field">Kata sandi
+        <input id="password" type="password" autocomplete="current-password" minlength="8" required>
+      </label>
+      <button class="operator-primary" id="submit-auth" type="submit">Masuk</button>
+      <button class="operator-secondary" id="toggle-auth-mode" type="button">Buat akun masyarakat</button>
+    </form>
+    <a class="login-back" href="./index.html">← Kembali ke LAPOR PAK</a>
   </main>
-  <footer class="site-footer"><div class="shell footer-inner"><span><b>LAPOR PAK</b> · Masyarakat dapat melapor tanpa akun.</span><a href="./lapor.html">Lapor tanpa akun</a></div></footer>
+  <script type="module" src="./js/login.js"></script>
 </body>
 </html>

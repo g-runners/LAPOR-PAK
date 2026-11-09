@@ -14,7 +14,6 @@
         <a class="moris-brand" href="/">LAPOR <span>PAK</span></a>
         <nav aria-label="Navigasi">
             <a href="/">Beranda</a>
-            <a href="/operator/login">Login operator</a>
         </nav>
     </header>
     <main class="map-layout">
@@ -26,7 +25,11 @@
             <label class="map-field">Cari lokasi atau laporan
                 <input id="map-search" type="search" placeholder="Nama jalan, kerusakan, atau ID">
             </label>
-            <div class="map-filters">
+            <div class="map-quick-actions" role="group" aria-label="Tampilan peta">
+                <button class="map-quick-action is-active" type="button" data-toggle-panel="map-filters" aria-controls="map-filters" aria-expanded="true">Filter</button>
+                <button class="map-quick-action is-active" type="button" data-toggle-panel="map-report-list" aria-controls="map-report-list" aria-expanded="true">Prioritas</button>
+            </div>
+            <div class="map-filters" id="map-filters">
                 <label class="map-field">Status
                     <select id="map-status">
                         <option value="">Semua status</option>
@@ -43,6 +46,7 @@
                         <option>Rendah</option>
                     </select>
                 </label>
+                <button class="map-filter-reset" id="map-filter-reset" type="button" hidden>Reset filter</button>
             </div>
             <section class="map-priority">
                 <div class="map-section-heading">
@@ -63,7 +67,6 @@
                 <button id="map-locate" type="button" aria-label="Tampilkan lokasi saya" title="Lokasi saya">◎</button>
                 <button id="map-hide-route" type="button" aria-label="Sembunyikan rute" title="Sembunyikan rute">╳</button>
             </div>
-            <div class="map-legend"><span class="legend-high"></span> Tinggi <span class="legend-medium"></span> Sedang <span class="legend-low"></span> Rendah</div>
         </section>
     </main>
     <script>window.laporPakReports = {{ reports|tojson }};</script>

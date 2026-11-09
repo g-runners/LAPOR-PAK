@@ -11,7 +11,9 @@ export async function getCurrentProfile() {
 
   const profile = await fetchProfile(user.id);
   if (!profile) {
-    throw new Error("Profil akun belum tersedia. Pastikan trigger profiles berjalan.");
+    throw new Error(
+      "Profil akun belum tersedia. Jika akun dibuat sebelum trigger aktif, jalankan sql/repair_missing_profiles.sql di Supabase SQL Editor. Jika masih gagal, periksa policy SELECT pada profiles."
+    );
   }
   return { user, profile };
 }
@@ -27,14 +29,11 @@ export async function signIn(email, password) {
   return data;
 }
 
-export async function signUp(email, password, nama) {
+export async function signUp(email, password) {
   const client = requireSupabaseClient();
   const { data, error } = await client.auth.signUp({
     email,
-    password,
-    options: {
-      data: { nama }
-    }
+    password
   });
 
   if (error) throw error;
@@ -70,10 +69,14 @@ export async function signOut() {
   if (error) throw error;
 }
 
-export async function requireRole(allowedRoles) {
+export async function requireRole(allowedRoles, loginNext = "petugas.html") {
   const result = await getCurrentProfile();
-  if (!result.user || !result.profile || !allowedRoles.includes(result.profile.role)) {
-    window.location.replace("./login.html?next=admin.html");
+  if (!result.user) {
+    window.location.replace(`./login.html?next=${encodeURIComponent(loginNext)}`);
+    return null;
+  }
+  if (!result.profile || !allowedRoles.includes(result.profile.role)) {
+    window.location.replace("./index.html?access=denied");
     return null;
   }
   return result;

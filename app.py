@@ -6,23 +6,19 @@ import secrets
 import threading
 import uuid
 from datetime import datetime
-from functools import wraps
 from pathlib import Path
 
 from dotenv import load_dotenv
 from flask import (
     Flask,
     abort,
-    flash,
     jsonify,
-    redirect,
     render_template,
     request,
     send_from_directory,
     session,
     url_for,
 )
-from werkzeug.security import check_password_hash
 from werkzeug.utils import secure_filename
 
 load_dotenv()
@@ -60,12 +56,13 @@ def load_data():
             with path.open(encoding="utf-8") as data_file:
                 data = json.load(data_file)
         except FileNotFoundError:
-            return {"operators": [], "reports": []}
+            return {"reports": []}
         except (OSError, json.JSONDecodeError) as error:
             raise DataStoreError("Data LAPOR PAK tidak dapat dibaca.") from error
 
-    if not isinstance(data, dict) or not isinstance(data.get("operators"), list) or not isinstance(data.get("reports"), list):
+    if not isinstance(data, dict) or not isinstance(data.get("reports"), list):
         raise DataStoreError("Format berkas data LAPOR PAK tidak valid.")
+    data.pop("operators", None)
     return data
 
 
@@ -85,27 +82,6 @@ def save_data(data):
             if temp_path.exists():
                 temp_path.unlink()
             raise DataStoreError("Data LAPOR PAK tidak dapat disimpan.") from error
-
-
-def find_operator(username):
-    return next(
-        (
-            operator for operator in load_data()["operators"]
-            if operator["username"].casefold() == username.casefold()
-        ),
-        None,
-    )
-
-
-def create_operator(username, password_hash):
-    with _DATA_LOCK:
-        data = load_data()
-        if any(operator["username"].casefold() == username.casefold() for operator in data["operators"]):
-            raise ValueError("Nama pengguna operator sudah ada.")
-        operator = {"id": uuid.uuid4().hex, "username": username, "password_hash": password_hash}
-        data["operators"].append(operator)
-        save_data(data)
-    return operator
 
 
 def csrf_token():
@@ -128,18 +104,6 @@ def protect_state_changes():
             abort(400, description="Token keamanan tidak valid. Muat ulang halaman lalu coba kembali.")
 
 
-def login_required(view):
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        if "operator_id" not in session:
-            if request.path.startswith("/api/"):
-                return jsonify({"error": "Login operator diperlukan."}), 401
-            return redirect(url_for("operator_login", next=request.path))
-        return view(*args, **kwargs)
-
-    return wrapped
-
-
 def classify_severity(text):
     normalized = text.lower()
     if re.search(r"\b(amblas|longsor|putus|sangat dalam|lubang besar|membahayakan|kecelakaan|parah)\b", normalized):
@@ -149,24 +113,20 @@ def classify_severity(text):
     return "Rendah"
 
 
-def parse_report_values(source, allow_status=False):
+def parse_report_values(source):
     title = str(source.get("title", "")).strip()
     location = str(source.get("location", "")).strip()
     description = str(source.get("description", "")).strip()
     coordinates = str(source.get("coordinates", "")).strip()
-    status = str(source.get("status", STATUSES[0])).strip() if allow_status else STATUSES[0]
 
     if not title or len(title) > 80:
         raise ValueError("Jenis kerusakan wajib diisi dan maksimal 80 karakter.")
-    if not allow_status and title not in PUBLIC_DAMAGE_TYPES:
+    if title not in PUBLIC_DAMAGE_TYPES:
         raise ValueError("Pilih jenis kerusakan Jalan Berlubang atau Jalan Retak.")
     if not location or len(location) > 120:
         raise ValueError("Lokasi jalan wajib diisi dan maksimal 120 karakter.")
     if not description or len(description) > 500:
         raise ValueError("Deskripsi wajib diisi dan maksimal 500 karakter.")
-    if status not in STATUSES:
-        raise ValueError("Status laporan tidak valid.")
-
     latitude = longitude = None
     if coordinates:
         parts = coordinates.split(",")
@@ -186,7 +146,7 @@ def parse_report_values(source, allow_status=False):
         "latitude": latitude,
         "longitude": longitude,
         "severity": classify_severity(title + " " + description),
-        "status": status,
+        "status": STATUSES[0],
     }
 
 
@@ -290,36 +250,6 @@ def rate_report(report_id, rating):
     return True
 
 
-def update_report(report_id, values, photo_path=None, repair_photo_path=None):
-    with _DATA_LOCK:
-        data = load_data()
-        report = next((item for item in data["reports"] if item["id"] == report_id), None)
-        if not report:
-            return None
-        previous_photos = (report.get("photo_path"), report.get("repair_photo_path"))
-        report.update(values)
-        if photo_path:
-            report["photo_path"] = photo_path
-        if repair_photo_path:
-            report["repair_photo_path"] = repair_photo_path
-        save_data(data)
-    return previous_photos
-
-
-def delete_report(report_id):
-    with _DATA_LOCK:
-        data = load_data()
-        report_index = next(
-            (index for index, item in enumerate(data["reports"]) if item["id"] == report_id),
-            None,
-        )
-        if report_index is None:
-            return None
-        report = data["reports"].pop(report_index)
-        save_data(data)
-    return report.get("photo_path"), report.get("repair_photo_path")
-
-
 @app.get("/")
 def home():
     return render_template("index.html")
@@ -377,110 +307,6 @@ def api_rate_report(report_id):
     if not rate_report(report_id, rating):
         return jsonify({"error": "Laporan tidak ditemukan atau belum selesai diperbaiki."}), 404
     return jsonify({"rating": rating})
-
-
-@app.get("/operator/login")
-def operator_login():
-    if "operator_id" in session:
-        return redirect(url_for("operator_dashboard"))
-    return render_template("templates/login.html", csrf=csrf_token())
-
-
-@app.post("/operator/login")
-def operator_login_submit():
-    username = request.form.get("username", "").strip()
-    password = request.form.get("password", "")
-    operator = find_operator(username)
-
-    if not operator or not check_password_hash(operator["password_hash"], password):
-        flash("Nama pengguna atau kata sandi tidak sesuai.", "error")
-        return redirect(url_for("operator_login"))
-
-    session.clear()
-    session["operator_id"] = operator["id"]
-    session["operator_username"] = operator["username"]
-    csrf_token()
-    return redirect(url_for("operator_dashboard"))
-
-
-@app.post("/operator/logout")
-@login_required
-def operator_logout():
-    session.clear()
-    return redirect(url_for("home"))
-
-
-@app.get("/operator")
-@login_required
-def operator_dashboard():
-    return render_template(
-        "templates/operator.html",
-        reports=fetch_reports(),
-        statistics=fetch_statistics(),
-        username=session["operator_username"],
-        csrf=csrf_token(),
-    )
-
-
-@app.post("/operator/reports")
-@login_required
-def operator_create_report():
-    photo_path = None
-    try:
-        values = parse_report_values(request.form, allow_status=True)
-        photo_path = save_uploaded_image(request.files.get("photo"))
-        insert_report(values, photo_path)
-        flash("Laporan berhasil ditambahkan.", "success")
-    except ValueError as error:
-        flash(str(error), "error")
-    except Exception:
-        if photo_path:
-            (UPLOAD_DIR / photo_path).unlink(missing_ok=True)
-        raise
-    return redirect(url_for("operator_dashboard"))
-
-
-@app.post("/operator/reports/<report_id>/update")
-@login_required
-def operator_update_report(report_id):
-    new_photo = new_repair_photo = None
-    try:
-        values = parse_report_values(request.form, allow_status=True)
-        new_photo = save_uploaded_image(request.files.get("photo"))
-        new_repair_photo = save_uploaded_image(request.files.get("repair_photo"))
-
-        previous_photos = update_report(report_id, values, new_photo, new_repair_photo)
-        if previous_photos is None:
-            abort(404)
-        for new_file, old_file in zip((new_photo, new_repair_photo), previous_photos):
-            if new_file and old_file:
-                (UPLOAD_DIR / old_file).unlink(missing_ok=True)
-        flash("Perubahan laporan berhasil disimpan.", "success")
-    except ValueError as error:
-        for filename in (new_photo, new_repair_photo):
-            if filename:
-                (UPLOAD_DIR / filename).unlink(missing_ok=True)
-        flash(str(error), "error")
-    except Exception:
-        for filename in (new_photo, new_repair_photo):
-            if filename:
-                (UPLOAD_DIR / filename).unlink(missing_ok=True)
-        raise
-    return redirect(url_for("operator_dashboard"))
-
-
-@app.post("/operator/reports/<report_id>/delete")
-@login_required
-def operator_delete_report(report_id):
-    photo_paths = delete_report(report_id)
-    if photo_paths is None:
-        flash("Laporan tidak ditemukan.", "error")
-        return redirect(url_for("operator_dashboard"))
-    for filename in photo_paths:
-        if filename:
-            (UPLOAD_DIR / filename).unlink(missing_ok=True)
-    flash("Laporan berhasil dihapus.", "success")
-    return redirect(url_for("operator_dashboard"))
 
 
 @app.errorhandler(413)

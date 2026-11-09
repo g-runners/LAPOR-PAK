@@ -21,12 +21,12 @@ class LaporPakTests(unittest.TestCase):
         self.temp_dir.cleanup()
 
     def csrf_token(self):
-        response = self.client.get("/")
+        response = self.client.get("/map")
         match = re.search(rb'<meta name="csrf-token" content="([^"]+)"', response.data)
         self.assertIsNotNone(match)
         return match.group(1).decode()
 
-    def test_public_report_cannot_set_operator_status(self):
+    def test_public_report_cannot_set_staff_status(self):
         values = lapor_app.parse_report_values(
             MultiDict({
                 "title": "Jalan Berlubang",
@@ -38,19 +38,6 @@ class LaporPakTests(unittest.TestCase):
         )
         self.assertEqual(values["status"], "Menunggu ditangani")
         self.assertEqual(values["severity"], "Tinggi")
-
-    def test_operator_can_set_status(self):
-        values = lapor_app.parse_report_values(
-            MultiDict({
-                "title": "Retak jalan",
-                "location": "Jalan Melati",
-                "description": "Retak pada badan jalan",
-                "coordinates": "",
-                "status": "Selesai",
-            }),
-            allow_status=True,
-        )
-        self.assertEqual(values["status"], "Selesai")
 
     def test_coordinates_are_validated(self):
         for coordinates in ("95, 107", "NaN, 107"):
@@ -108,18 +95,23 @@ class LaporPakTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
-    def test_operator_dashboard_requires_login(self):
-        response = self.client.get("/operator")
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/operator/login", response.headers["Location"])
+    def test_legacy_operator_routes_are_removed(self):
+        for path in ("/operator", "/operator/login"):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 404)
 
-    def test_map_and_login_templates_render(self):
+    def test_legacy_operator_accounts_are_ignored(self):
+        data_file = lapor_app.app.config["DATA_FILE"]
+        data_file.write_text(
+            '{"operators":[{"username":"old-account","password_hash":"unused"}],"reports":[]}',
+            encoding="utf-8",
+        )
+        self.assertEqual(lapor_app.load_data(), {"reports": []})
+
+    def test_map_template_renders(self):
         map_response = self.client.get("/map")
-        login_response = self.client.get("/operator/login")
         self.assertEqual(map_response.status_code, 200)
         self.assertIn(b"report-map", map_response.data)
-        self.assertEqual(login_response.status_code, 200)
-        self.assertIn(b"Login operator", login_response.data)
 
     def test_banner_image_is_served_by_flask(self):
         response = self.client.get("/images/banner.jpg")
@@ -129,31 +121,6 @@ class LaporPakTests(unittest.TestCase):
             self.assertTrue(response.data.startswith(b"\xff\xd8\xff"))
         finally:
             response.close()
-
-    def test_operator_dashboard_renders_report_management(self):
-        report = {
-            "id": "LP-TEST",
-            "title": "Lubang besar",
-            "location": "Jalan Mawar",
-            "description": "Lubang membahayakan",
-            "coordinates": "-6.200000, 107.100000",
-            "severity": "Tinggi",
-            "status": "Menunggu ditangani",
-            "photo": "",
-            "repairPhoto": "",
-        }
-        with self.client.session_transaction() as browser_session:
-            browser_session["operator_id"] = 1
-            browser_session["operator_username"] = "petugas"
-        with patch.object(lapor_app, "fetch_reports", return_value=[report]), patch.object(
-            lapor_app,
-            "fetch_statistics",
-            return_value={"total": 1, "pending": 1, "processing": 0, "completed": 0},
-        ):
-            response = self.client.get("/operator")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Dashboard operator", response.data)
-        self.assertIn(b"Hapus laporan", response.data)
 
     def test_report_data_is_persisted_and_used_by_map(self):
         values = {
@@ -197,32 +164,6 @@ class LaporPakTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(lapor_app.fetch_reports()[0]["rating"], 5)
-
-    def test_operator_accounts_are_stored_as_password_hashes(self):
-        operator = lapor_app.create_operator("petugas", "hashed-password")
-        self.assertEqual(lapor_app.find_operator("petugas")["id"], operator["id"])
-        self.assertNotIn("password", lapor_app.find_operator("petugas"))
-
-    def test_operator_report_updates_and_deletes_are_persisted(self):
-        values = {
-            "title": "Jalan Retak",
-            "location": "Jalan Mawar",
-            "description": "Retak pada badan jalan",
-            "latitude": None,
-            "longitude": None,
-            "severity": "Sedang",
-            "status": lapor_app.STATUSES[0],
-        }
-        report_id = lapor_app.insert_report(values, "before.jpg")
-        previous_photos = lapor_app.update_report(
-            report_id,
-            {**values, "status": lapor_app.STATUSES[2]},
-            repair_photo_path="repair.jpg",
-        )
-        self.assertEqual(previous_photos, ("before.jpg", None))
-        self.assertEqual(lapor_app.fetch_statistics()["completed"], 1)
-        self.assertEqual(lapor_app.delete_report(report_id), ("before.jpg", "repair.jpg"))
-        self.assertEqual(lapor_app.fetch_statistics()["total"], 0)
 
     def test_data_store_outage_has_explicit_response(self):
         with patch.object(

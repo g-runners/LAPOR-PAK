@@ -4,6 +4,8 @@ import { requireSupabaseClient } from "./supabase-client.js";
 const REPORT_TABLE = "reports";
 const PROFILE_TABLE = "profiles";
 const RATING_TABLE = "report_ratings";
+const ROAD_TABLE = "roads";
+const ROAD_PRIORITY_VIEW = "road_priorities";
 
 export async function fetchReports() {
   const client = requireSupabaseClient();
@@ -14,6 +16,39 @@ export async function fetchReports() {
 
   if (error) throw error;
   return data || [];
+}
+
+export async function fetchRoadPriorities() {
+  const client = requireSupabaseClient();
+  const { data, error } = await client
+    .from(ROAD_PRIORITY_VIEW)
+    .select("*")
+    .order("damage_percentage", { ascending: false, nullsFirst: false })
+    .order("name", { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function updateRoadDimensions(roadId, lengthMeters, widthMeters) {
+  if (!Number.isFinite(lengthMeters) || lengthMeters <= 0 ||
+      !Number.isFinite(widthMeters) || widthMeters <= 0) {
+    throw new Error("Panjang dan lebar jalan harus lebih besar dari 0 m.");
+  }
+
+  const client = requireSupabaseClient();
+  const { data, error } = await client
+    .from(ROAD_TABLE)
+    .update({
+      length_cm: lengthMeters * 100,
+      width_cm: widthMeters * 100,
+      dimensions_verified: true
+    })
+    .eq("id", roadId)
+    .select("id");
+
+  if (error) throw error;
+  if (!data?.length) throw new Error("Dimensi jalan tidak tersimpan. Periksa role petugas dan policy RLS.");
 }
 
 export async function fetchReport(reportId) {

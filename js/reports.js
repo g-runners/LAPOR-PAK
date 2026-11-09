@@ -1,36 +1,50 @@
 import { ensureAnonymousSession, getCurrentProfile } from "./auth.js";
 import { detectRoadDamage } from "./detector.js";
-import { fetchReports, insertReport, removePhoto, uploadPhoto } from "./storage.js";
-import { initializeNavigation } from "./ui.js";
-
-initializeNavigation();
+import { reverseGeocode } from "./geocoding.js";
+import { insertReport, removePhoto, uploadPhoto } from "./storage.js";
+import { hideModal, showModal } from "./ui.js";
 
 const form = document.getElementById("report-form");
-const photoInput = document.getElementById("photo");
+const photoInput = document.getElementById("report-photo");
+const cameraFileInput = document.getElementById("camera-file");
 const preview = document.getElementById("photo-preview");
 const heightInput = document.getElementById("camera-height");
 const damageLevelInput = document.getElementById("damage-level");
 const detectionMessage = document.getElementById("detection-result");
 const measurementMessage = document.getElementById("damage-measurement");
-const reportMessage = document.getElementById("report-message");
+const reportMessage = document.getElementById("form-error");
 const locationMessage = document.getElementById("location-message");
-const successDialog = document.getElementById("report-success-dialog");
-const closeSuccessDialog = document.getElementById("close-success-dialog");
-const latitudeInput = document.getElementById("latitude");
-const longitudeInput = document.getElementById("longitude");
-const addressInput = document.getElementById("address");
-const submitButton = document.getElementById("submit-report");
+const coordinatesInput = document.getElementById("report-coordinates");
+const roadNameInput = document.getElementById("report-road-name");
+const addressInput = document.getElementById("report-location");
+const descriptionInput = document.getElementById("report-description");
+const submitButton = form.querySelector('button[type="submit"]');
+const successModal = document.getElementById("report-success-modal");
+const cameraModal = document.getElementById("camera-modal");
+const cameraVideo = document.getElementById("camera-video");
+const cameraCanvas = document.getElementById("camera-canvas");
+const cameraMessage = document.getElementById("camera-message");
+const cameraCapture = document.getElementById("camera-capture");
 
 let detection = null;
 let marker = null;
 let currentObjectUrl = "";
 let detectionSequence = 0;
-
-closeSuccessDialog.addEventListener("click", () => successDialog.close());
+let geocodeSequence = 0;
+let geocodeController = null;
+let addressTouched = false;
+let cameraStream = null;
+let map = null;
 
 function setMessage(element, text, type = "") {
   element.textContent = text;
   element.dataset.type = type;
+}
+
+function closeSuccessModal() {
+  hideModal(successModal);
+  document.body.classList.remove("modal-open");
+  document.querySelector(".welcome-row [data-open-form]")?.focus();
 }
 
 function validCoordinates(latitude, longitude) {
@@ -38,36 +52,138 @@ function validCoordinates(latitude, longitude) {
     latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
 }
 
-function setCoordinates(latitude, longitude, zoom = 16) {
-  latitudeInput.value = latitude.toFixed(6);
-  longitudeInput.value = longitude.toFixed(6);
-  const point = [latitude, longitude];
-  if (marker) marker.setLatLng(point);
-  else marker = L.marker(point).addTo(map);
-  map.setView(point, zoom);
-  setMessage(locationMessage, "Titik lokasi terpilih.", "success");
+async function updateAddressFromCoordinates(latitude, longitude) {
+  const sequence = ++geocodeSequence;
+  geocodeController?.abort();
+  geocodeController = new AbortController();
+  setMessage(locationMessage, "Mencari alamat berdasarkan titik lokasi…");
+
+  try {
+    const result = await reverseGeocode(latitude, longitude, geocodeController.signal);
+    if (sequence !== geocodeSequence) return;
+    if (result.roadName) roadNameInput.value = result.roadName;
+    else roadNameInput.value = addressInput.value.trim();
+    if (!addressTouched && result.address) addressInput.value = result.address;
+    setMessage(
+      locationMessage,
+      result.address ? "Alamat ditemukan dari titik lokasi; Anda tetap dapat mengubahnya." :
+        "Nama jalan tidak ditemukan. Silakan isi alamat secara manual.",
+      result.address ? "success" : "warning"
+    );
+  } catch (error) {
+    if (sequence !== geocodeSequence || error.name === "AbortError") return;
+    roadNameInput.value = addressInput.value.trim();
+    setMessage(locationMessage, `Alamat otomatis tidak tersedia: ${error.message}. Isi alamat secara manual.`, "warning");
+    console.warn("Reverse geocoding gagal:", error);
+  }
 }
 
-let map = null;
+function setCoordinates(latitude, longitude, zoom = 16) {
+  coordinatesInput.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+  const point = [latitude, longitude];
+  if (marker) marker.setLatLng(point);
+  else if (map) marker = L.marker(point).addTo(map);
+  map?.setView(point, zoom);
+  updateAddressFromCoordinates(latitude, longitude);
+}
+
 if (window.L?.map) {
-  map = L.map("report-map").setView([-6.2383, 106.9933], 12);
+  map = L.map("location-map").setView([-6.2383, 106.9933], 12);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: "&copy; OpenStreetMap contributors"
   }).addTo(map);
   map.on("click", (event) => setCoordinates(event.latlng.lat, event.latlng.lng));
+  document.getElementById("map-status").textContent = "Ketuk peta untuk memilih titik lokasi.";
 } else {
-  document.getElementById("report-map").textContent = "Peta tidak dapat dimuat. Alamat atau koordinat tetap dapat diisi manual.";
-  setMessage(locationMessage, "Leaflet tidak termuat; gunakan alamat, koordinat, atau GPS.", "warning");
+  document.getElementById("location-map").textContent = "Peta tidak dapat dimuat. Alamat atau koordinat tetap dapat diisi manual.";
+  setMessage(locationMessage, "Peta tidak termuat; isi alamat secara manual.", "warning");
 }
 
-document.getElementById("use-location").addEventListener("click", () => {
+window.addEventListener("report-modal-open", () => window.setTimeout(() => map?.invalidateSize(), 50));
+addressInput.addEventListener("input", () => {
+  addressTouched = true;
+  if (!roadNameInput.value) roadNameInput.value = addressInput.value.trim();
+});
+
+function validateImage(file) {
+  if (!file) throw new Error("Pilih foto JPG atau PNG.");
+  if (!["image/jpeg", "image/png"].includes(file.type)) throw new Error("Foto harus berformat JPG atau PNG.");
+  if (file.size > 5 * 1024 * 1024) throw new Error("Ukuran foto maksimal 5 MB.");
+}
+
+async function runDetection() {
+  const sequence = ++detectionSequence;
+  const file = photoInput.files?.[0];
+  detection = null;
+  damageLevelInput.value = "";
+  measurementMessage.textContent = "";
+  if (!file) {
+    setMessage(detectionMessage, "Deteksi akan berjalan setelah foto dipilih.");
+    return;
+  }
+
+  try {
+    validateImage(file);
+    const cameraHeightCm = heightInput.value ? Number(heightInput.value) : null;
+    if (cameraHeightCm !== null && (!Number.isFinite(cameraHeightCm) || cameraHeightCm < 50 || cameraHeightCm > 300)) {
+      throw new Error("Tinggi kamera harus antara 50 dan 300 cm.");
+    }
+
+    setMessage(detectionMessage, "Model MORIS sedang memeriksa foto…");
+    detection = await detectRoadDamage(file, cameraHeightCm);
+    if (sequence !== detectionSequence) return;
+    if (!detection.detected) {
+      setMessage(detectionMessage, "Model tidak menemukan pothole pada foto.", "warning");
+      return;
+    }
+
+    const confidence = Math.round(detection.confidence * 100);
+    if (detection.damageLevel) {
+      damageLevelInput.value = detection.damageLevel;
+      const { longestCm, widthCm } = detection.estimatedDimensions;
+      measurementMessage.textContent = `Perkiraan ukuran ${longestCm.toFixed(1)} × ${widthCm.toFixed(1)} cm; hasil perlu diverifikasi petugas.`;
+      setMessage(detectionMessage, `Pothole terdeteksi (${confidence}% confidence).`, "success");
+    } else {
+      setMessage(detectionMessage, `Pothole terdeteksi (${confidence}% confidence). Isi tinggi kamera untuk memperkirakan level.`, "warning");
+    }
+  } catch (error) {
+    if (sequence !== detectionSequence) return;
+    detection = null;
+    setMessage(detectionMessage, `Deteksi gagal: ${error.message}`, "error");
+  }
+}
+
+function clearPreview() {
+  if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
+  currentObjectUrl = "";
+  preview.removeAttribute("src");
+  preview.hidden = true;
+}
+
+photoInput.addEventListener("change", async () => {
+  clearPreview();
+  const file = photoInput.files?.[0];
+  if (file) {
+    currentObjectUrl = URL.createObjectURL(file);
+    preview.src = currentObjectUrl;
+    preview.hidden = false;
+  }
+  await runDetection();
+});
+cameraFileInput.addEventListener("change", () => {
+  const file = cameraFileInput.files?.[0];
+  if (!file) return;
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  photoInput.files = transfer.files;
+  photoInput.dispatchEvent(new Event("change", { bubbles: true }));
+});
+heightInput.addEventListener("change", runDetection);
+
+document.getElementById("locate-button").addEventListener("click", () => {
   if (!window.isSecureContext) {
-    setMessage(
-      locationMessage,
-      "GPS di ponsel memerlukan koneksi HTTPS. Buka situs melalui alamat HTTPS, atau isi alamat/koordinat secara manual.",
-      "error"
-    );
+    setMessage(locationMessage, "GPS di ponsel memerlukan koneksi HTTPS. Isi lokasi secara manual atau pilih titik di peta.", "error");
     return;
   }
   if (!navigator.geolocation) {
@@ -82,116 +198,90 @@ document.getElementById("use-location").addEventListener("click", () => {
   );
 });
 
-for (const input of [latitudeInput, longitudeInput]) {
-  input.addEventListener("change", () => {
-    const latitude = Number(latitudeInput.value);
-    const longitude = Number(longitudeInput.value);
-    if (latitudeInput.value && longitudeInput.value && validCoordinates(latitude, longitude)) {
-      setCoordinates(latitude, longitude);
-    }
-  });
-}
-
-async function validateImage(file) {
-  if (!file) throw new Error("Pilih foto bukti kerusakan.");
-  if (file.size > 5 * 1024 * 1024) throw new Error("Ukuran foto maksimal 5 MB.");
-  if (!["image/jpeg", "image/png"].includes(file.type)) {
-    throw new Error("Foto harus berformat JPG atau PNG.");
+function stopCamera() {
+  cameraStream?.getTracks().forEach((track) => track.stop());
+  cameraStream = null;
+  cameraVideo.srcObject = null;
+  hideModal(cameraModal);
+  if (document.getElementById("report-modal").hidden) {
+    document.body.classList.remove("modal-open");
   }
-
-  const header = new Uint8Array(await file.slice(0, 8).arrayBuffer());
-  const isJpeg = header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff;
-  const isPng = [137, 80, 78, 71, 13, 10, 26, 10].every((value, index) => header[index] === value);
-  if (!isJpeg && !isPng) throw new Error("Isi file tidak cocok dengan format JPG atau PNG.");
 }
 
-async function runDetection() {
-  const sequence = ++detectionSequence;
-  const file = photoInput.files?.[0];
-  detection = null;
-  damageLevelInput.value = "";
-  measurementMessage.textContent = "Hasil deteksi hanya pendukung dan perlu pemeriksaan petugas.";
-  if (!file) {
-    setMessage(detectionMessage, "Pilih foto untuk menjalankan deteksi.");
+document.getElementById("camera-button").addEventListener("click", async () => {
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+    cameraFileInput.click();
     return;
   }
-
+  showModal(cameraModal);
+  document.body.classList.add("modal-open");
+  setMessage(cameraMessage, "Mengakses kamera…");
   try {
-    await validateImage(file);
-    const cameraHeightCm = heightInput.value ? Number(heightInput.value) : null;
-    if (cameraHeightCm !== null && (cameraHeightCm < 50 || cameraHeightCm > 300)) {
-      throw new Error("Tinggi kamera harus antara 50 dan 300 cm.");
-    }
-
-    setMessage(detectionMessage, "Model MORIS sedang memeriksa foto…");
-    detection = await detectRoadDamage(file, cameraHeightCm);
-    if (sequence !== detectionSequence) return;
-    if (!detection.detected) {
-      setMessage(detectionMessage, "Model tidak menemukan pothole pada foto.", "warning");
-      return;
-    }
-
-    const confidence = Math.round(detection.confidence * 100);
-    setMessage(detectionMessage, `Pothole terdeteksi (${confidence}% confidence).`, "success");
-    if (detection.damageLevel) {
-      damageLevelInput.value = detection.damageLevel;
-      const { longestCm, widthCm } = detection.estimatedDimensions;
-      measurementMessage.textContent =
-        `Perkiraan ukuran ${longestCm.toFixed(1)} × ${widthCm.toFixed(1)} cm; model dan asumsi kamera tidak menggantikan pemeriksaan lapangan.`;
-    } else {
-      setMessage(
-        detectionMessage,
-        `Pothole terdeteksi (${confidence}% confidence), tetapi level belum dihitung. Masukkan tinggi kamera yang diperkirakan.`,
-        "warning"
-      );
-    }
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    cameraVideo.srcObject = cameraStream;
+    await cameraVideo.play();
+    cameraCapture.disabled = false;
+    setMessage(cameraMessage, "Arahkan kamera ke kondisi jalan yang ingin dilaporkan.");
   } catch (error) {
-    if (sequence !== detectionSequence) return;
-    detection = null;
-    setMessage(detectionMessage, `Deteksi gagal: ${error.message}`, "error");
+    stopCamera();
+    setMessage(locationMessage, `Kamera tidak dapat dibuka: ${error.message}`, "error");
   }
-}
-
-photoInput.addEventListener("change", async () => {
-  if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
-  const file = photoInput.files?.[0];
-  if (file) {
-    currentObjectUrl = URL.createObjectURL(file);
-    preview.src = currentObjectUrl;
-    preview.hidden = false;
-  } else {
-    preview.removeAttribute("src");
-    preview.hidden = true;
-  }
-  await runDetection();
 });
 
-heightInput.addEventListener("change", runDetection);
+cameraCapture.addEventListener("click", () => {
+  if (!cameraVideo.videoWidth || !cameraVideo.videoHeight) {
+    setMessage(cameraMessage, "Kamera belum siap. Coba lagi sebentar.");
+    return;
+  }
+  cameraCanvas.width = cameraVideo.videoWidth;
+  cameraCanvas.height = cameraVideo.videoHeight;
+  cameraCanvas.getContext("2d").drawImage(cameraVideo, 0, 0);
+  cameraCanvas.toBlob((blob) => {
+    if (!blob) {
+      setMessage(cameraMessage, "Foto dari kamera gagal diproses.", "error");
+      return;
+    }
+    const file = new File([blob], `lapor-pak-${Date.now()}.jpg`, { type: "image/jpeg" });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    photoInput.files = transfer.files;
+    photoInput.dispatchEvent(new Event("change", { bubbles: true }));
+    stopCamera();
+  }, "image/jpeg", 0.92);
+});
+document.getElementById("camera-close").addEventListener("click", stopCamera);
+document.getElementById("camera-cancel").addEventListener("click", stopCamera);
+cameraModal.addEventListener("click", (event) => {
+  if (event.target === cameraModal) stopCamera();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && cameraModal.hidden === false) stopCamera();
+  if (event.key === "Escape" && successModal.hidden === false) closeSuccessModal();
+});
+document.getElementById("report-success-close").addEventListener("click", closeSuccessModal);
+document.getElementById("report-success-done").addEventListener("click", closeSuccessModal);
+successModal.addEventListener("click", (event) => {
+  if (event.target === successModal) closeSuccessModal();
+});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   setMessage(reportMessage, "");
 
   const file = photoInput.files?.[0];
-  const description = document.getElementById("description").value.trim();
+  const description = descriptionInput.value.trim();
   const address = addressInput.value.trim();
-  const latitudeText = latitudeInput.value.trim();
-  const longitudeText = longitudeInput.value.trim();
+  const coordinateParts = coordinatesInput.value.split(",").map((part) => part.trim());
+  const latitude = coordinateParts.length === 2 ? Number(coordinateParts[0]) : null;
+  const longitude = coordinateParts.length === 2 ? Number(coordinateParts[1]) : null;
+  const hasCoordinates = coordinateParts.length === 2 && coordinateParts.every(Boolean);
   const cameraHeightCm = heightInput.value ? Number(heightInput.value) : null;
-  const hasCoordinates = latitudeText !== "" && longitudeText !== "";
-  const latitude = hasCoordinates ? Number(latitudeText) : null;
-  const longitude = hasCoordinates ? Number(longitudeText) : null;
 
   try {
-    await validateImage(file);
+    validateImage(file);
     if (!description) throw new Error("Deskripsi kerusakan wajib diisi.");
-    if (!address && !hasCoordinates) throw new Error("Isi alamat atau tentukan titik GPS di peta.");
-    if (hasCoordinates && !validCoordinates(latitude, longitude)) {
-      throw new Error("Koordinat latitude/longitude tidak valid.");
-    }
-    if ((latitudeText && !longitudeText) || (!latitudeText && longitudeText)) {
-      throw new Error("Isi latitude dan longitude secara bersamaan.");
-    }
+    if (!address && !hasCoordinates) throw new Error("Isi alamat atau tentukan titik di peta/GPS.");
+    if (hasCoordinates && !validCoordinates(latitude, longitude)) throw new Error("Koordinat lokasi tidak valid.");
     if (cameraHeightCm !== null && (!Number.isFinite(cameraHeightCm) || cameraHeightCm < 50 || cameraHeightCm > 300)) {
       throw new Error("Tinggi kamera harus antara 50 dan 300 cm.");
     }
@@ -208,9 +298,12 @@ form.addEventListener("submit", async (event) => {
       latitude,
       longitude,
       address: address || null,
+      road_name: roadNameInput.value.trim() || address || null,
       status: "Verifikasi",
       damage_level: detection?.damageLevel || null,
       camera_height_cm: cameraHeightCm,
+      pothole_length_cm: detection?.estimatedDimensions?.lengthCm || null,
+      pothole_width_cm: detection?.estimatedDimensions?.widthCm || null,
       status_reason: null,
       merged_into: null,
       after_photo_url: null
@@ -227,26 +320,31 @@ form.addEventListener("submit", async (event) => {
       throw insertError;
     }
 
+    window.dispatchEvent(new CustomEvent("report-created"));
     form.reset();
     detection = null;
+    geocodeController?.abort();
+    geocodeController = null;
+    geocodeSequence += 1;
+    addressTouched = false;
     damageLevelInput.value = "";
-    preview.removeAttribute("src");
-    preview.hidden = true;
-    if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
-    currentObjectUrl = "";
-    if (marker) {
-      map.removeLayer(marker);
-      marker = null;
-    }
+    clearPreview();
+    if (marker) map.removeLayer(marker);
+    marker = null;
+    coordinatesInput.value = "";
     setMessage(locationMessage, "");
-    setMessage(detectionMessage, "Pilih foto untuk menjalankan deteksi.");
-    setMessage(reportMessage, "Laporan berhasil dikirim dengan status Verifikasi.", "success");
-    successDialog.showModal();
+    setMessage(detectionMessage, "Deteksi akan berjalan setelah foto dipilih.");
+    setMessage(reportMessage, "");
+    hideModal(document.getElementById("report-modal"));
+    successModal.style.zIndex = "10001";
+    showModal(successModal);
+    document.body.classList.add("modal-open");
+    document.getElementById("report-success-done").focus();
   } catch (error) {
     setMessage(reportMessage, `Laporan belum terkirim: ${error.message}`, "error");
     console.error("Pengiriman laporan gagal:", error);
   } finally {
     submitButton.disabled = false;
-    submitButton.innerHTML = 'Kirim laporan <span aria-hidden="true">→</span>';
+    submitButton.innerHTML = 'Kirim laporan <span>→</span>';
   }
 });
