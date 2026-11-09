@@ -30,7 +30,7 @@ textarea {
 	font: inherit;
 }
 
-.moris-header {
+.site-header {
 	height: 66px;
 	padding: 0 28px;
 	display: flex;
@@ -40,7 +40,7 @@ textarea {
 	border-bottom: 1px solid var(--line);
 }
 
-.moris-brand {
+.site-brand {
 	color: var(--ink);
 	font-size: 19px;
 	font-weight: 850;
@@ -48,17 +48,17 @@ textarea {
 	text-decoration: none;
 }
 
-.moris-brand span {
+.site-brand span {
 	color: var(--accent);
 }
 
-.moris-header nav {
+.site-header nav {
 	display: flex;
 	align-items: center;
 	gap: 24px;
 }
 
-.moris-header nav>a,
+.site-header nav>a,
 .logout-button {
 	border: 0;
 	background: none;
@@ -69,12 +69,12 @@ textarea {
 	cursor: pointer;
 }
 
-.moris-header nav>a:hover,
+.site-header nav>a:hover,
 .logout-button:hover {
 	color: var(--accent);
 }
 
-.moris-header nav form {
+.site-header nav form {
 	margin: 0;
 }
 
@@ -97,7 +97,7 @@ textarea {
 	border-right: 1px solid var(--line);
 }
 
-.map-page .moris-header {
+.map-page .site-header {
 	position: absolute;
 	z-index: 600;
 	top: 0;
@@ -917,16 +917,16 @@ textarea {
 }
 
 @media (max-width: 520px) {
-	.moris-header {
+	.site-header {
 		height: 58px;
 		padding: 0 15px;
 	}
 
-	.moris-header nav {
+	.site-header nav {
 		gap: 12px;
 	}
 
-	.moris-header nav>a,
+	.site-header nav>a,
 	.logout-button {
 		font-size: 11px;
 	}
@@ -935,7 +935,7 @@ textarea {
 		max-height: 60vh;
 	}
 
-	.map-page .moris-header {
+	.map-page .site-header {
 		height: 58px;
 	}
 

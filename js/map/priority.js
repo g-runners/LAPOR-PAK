@@ -3,7 +3,7 @@ import { nearbyCount } from "../report-priority.js";
 
 const DAMAGE_RANK = { Ringan: 1, Sedang: 2, Parah: 3 };
 
-// Severity colors are copied from morisv2/static/css/maps/severity-color.css.
+// Severity colors use the LAPOR PAK road-damage scale.
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;",

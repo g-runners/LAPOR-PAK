@@ -130,7 +130,7 @@ async function runDetection() {
       throw new Error("Tinggi kamera harus antara 50 dan 300 cm.");
     }
 
-    setMessage(detectionMessage, "Model MORIS sedang memeriksa foto…");
+    setMessage(detectionMessage, "Model deteksi sedang memeriksa foto…");
     detection = await detectRoadDamage(file, cameraHeightCm);
     if (sequence !== detectionSequence) return;
     if (!detection.detected) {

@@ -22,7 +22,7 @@ body {
 }
 
 a:hover,
-.moris-header nav > a:hover,
+.site-header nav > a:hover,
 .logout-button:hover,
 .title-period {
   color: var(--accent);

@@ -129,7 +129,7 @@ function renderRoads(roads) {
         <div>
           <h3>${escapeHtml(road.name)}</h3>
           <p>${Number(road.report_count) || 0} laporan · ${Number(road.measured_reports) || 0} laporan memiliki perkiraan ukuran</p>
-          <p>Kerusakan jalan: ${road.damage_percentage === null ? "Belum dapat dihitung" : `${Number(road.damage_percentage).toFixed(2)}%`} · Skor MORIS: ${road.damage_score ?? "-"}/10</p>
+          <p>Kerusakan jalan: ${road.damage_percentage === null ? "Belum dapat dihitung" : `${Number(road.damage_percentage).toFixed(2)}%`} · Skor prioritas: ${road.damage_score ?? "-"}/10</p>
           <p>${road.dimensions_verified ? "Dimensi sudah diverifikasi petugas." : "Dimensi masih nilai default 100 m × 5 m dan perlu diverifikasi petugas."}</p>
         </div>
       </div>
@@ -156,7 +156,7 @@ async function loadRoads() {
     setMessage(roadsMessage, `${roads.length} jalan dimuat.`, "success");
   } catch (error) {
     roadRows.innerHTML = "";
-    setMessage(roadsMessage, `Dimensi jalan gagal dimuat: ${error.message}. Jalankan sql/add_moris_road_priority.sql dan periksa policy RLS.`, "error");
+    setMessage(roadsMessage, `Dimensi jalan gagal dimuat: ${error.message}. Jalankan sql/add_road_priority.sql dan periksa policy RLS.`, "error");
     console.error("Dimensi jalan gagal dimuat:", error);
   }
 }

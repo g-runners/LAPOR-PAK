@@ -1,7 +1,7 @@
 import {
   CAMERA_TILT_DEGREES,
   CAMERA_VERTICAL_FOV_DEGREES,
-  MORIS_MODEL_URL
+  DAMAGE_MODEL_URL
 } from "./supabase-config.js";
 
 const INPUT_SIZE = 640;
@@ -19,7 +19,7 @@ function loadModel() {
     window.ort.env.wasm.numThreads = 1;
     window.ort.env.wasm.wasmPaths =
       "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/";
-    modelPromise = window.ort.InferenceSession.create(MORIS_MODEL_URL, {
+    modelPromise = window.ort.InferenceSession.create(DAMAGE_MODEL_URL, {
       executionProviders: ["wasm"]
     });
   }
@@ -147,7 +147,7 @@ export async function detectRoadDamage(file, cameraHeightCm = null) {
     const tensor = new window.ort.Tensor("float32", transform.tensorData, [1, 3, INPUT_SIZE, INPUT_SIZE]);
     const outputMap = await session.run({ [inputName]: tensor });
     const output = outputMap[session.outputNames[0]];
-    if (!output) throw new Error("Model MORIS tidak mengembalikan hasil deteksi.");
+    if (!output) throw new Error("Model deteksi tidak mengembalikan hasil.");
 
     const detections = decodeDetections(output, image, transform).map((detection) => ({
       ...detection,

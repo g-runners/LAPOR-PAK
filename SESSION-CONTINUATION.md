@@ -15,7 +15,8 @@ Kamu melanjutkan pengembangan repository LAPOR PAK yang sudah ada di workspace. 
 - Laporan warga memakai halaman umum dan modal laporan bersama.
 - Jangan mengubah skema database Supabase, RLS, atau trigger kecuali diminta secara eksplisit.
 - Jangan menaruh `service_role` key pada frontend atau repository.
-- Jangan mengubah isi folder `morisv2/` atau `silaporfasum/`.
+- Jangan mengubah isi folder arsip dan prototipe yang tidak terkait.
+- Jangan menyebut nama sistem/proyek lain pada antarmuka atau branding LAPOR PAK; gunakan istilah netral yang menggambarkan fungsi. Penyebutan nama seperti MORIS atau SILAPORFASUM diperbolehkan di dokumentasi apabila memang diperlukan sebagai referensi yang akurat dan membantu pembaca/AI memahami asal-usul, inspirasi, atau keterkaitan fitur. Jangan mengubah folder arsip/prototipe yang dikecualikan saat membersihkan teks antarmuka.
 - Pertahankan perubahan lokal yang sudah ada; lakukan perubahan presisi sesuai permintaan baru dan validasi dengan tes yang relevan.
 
 ## Implementasi yang sudah ada
@@ -27,9 +28,10 @@ Kamu melanjutkan pengembangan repository LAPOR PAK yang sudah ada di workspace. 
   - `supabase/functions/create-staff/index.ts`: Edge Function pembuatan akun dengan kata sandi sementara.
   - Navigasi dan guard role menggunakan `js/auth.js`, `js/login.js`, `js/ui.js`, dan `js/home.js`.
 - Edge Function harus dideploy sebagai `create-staff` dan secret `SUPABASE_SERVICE_ROLE_KEY` harus diatur di Supabase. Fungsi belum dideploy atau dites terhadap trigger/RLS project sebenarnya. Verifikasi pada project Supabase diperlukan sebelum fitur tersebut digunakan.
-- Halaman peta menggunakan `peta.html`, `assets/css/peta.css`, `assets/css/moris.css`, dan `js/map.js`.
+- Halaman peta menggunakan `peta.html`, `assets/css/peta.css`, `assets/css/site.css`, dan `js/map.js`.
 - Perubahan terbaru: sidebar peta pada viewport <= 820 px tertutup secara default agar tidak menutupi peta. Tombol "Tampilkan panel" membuka sidebar; tombol "Tutup panel" menutupnya. Pada desktop sidebar tetap terbuka. Sidebar tertutup juga diberi `inert` dan `aria-hidden`.
 - Aksen seluruh halaman utama memakai tema `#f3EEE3` (latar), `#111111` (teks), dan `#D9541E` (aksen). Token CSS menggunakan nama `--accent` dan `--accent-hover`, bukan `--green`; tombol aksen memakai teks gelap agar kontras jelas. Aturan terpusat di `assets/css/theme.css` dan dimuat oleh `index.html`, `login.html`, `petugas.html`, `super-admin.html`, serta `peta.html`.
+- Penamaan internal aplikasi telah dinetralkan: stylesheet header bersama berada di `assets/css/site.css` dengan class `.site-header`/`.site-brand`; model deteksi memakai `model/road-damage-detector.onnx`; SQL prioritas jalan memakai `sql/add_road_priority.sql`. Label UI dan dokumentasi tidak memakai nama proyek lain.
 
 ## Validasi yang sudah dilakukan
 

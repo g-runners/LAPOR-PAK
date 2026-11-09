@@ -14,13 +14,13 @@ body.map-page {
   background: var(--canvas);
 }
 
-.moris-header {
+.site-header {
   color: var(--ink);
   background: var(--white);
   border-color: var(--line);
 }
 
-.moris-brand {
+.site-brand {
   color: var(--ink);
 }
 
@@ -221,7 +221,7 @@ body.map-page {
   background: #E34053;
 }
 
-/* Severity colors are copied from morisv2/static/css/maps/severity-color.css. */
+/* Severity colors use the LAPOR PAK road-damage scale. */
 .legend-score-low,
 .severity-color-0 {
   background: #4CAF50;

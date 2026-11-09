@@ -1,4 +1,4 @@
--- MORIS-style road groups and area-based road priority for LAPOR PAK.
+-- Road groups and area-based road priority for LAPOR PAK.
 -- Run in Supabase SQL Editor. Safe to rerun; this script does not execute automatically.
 
 create table if not exists public.roads (
@@ -171,6 +171,6 @@ from percentages;
 grant select on public.road_priorities to anon, authenticated;
 
 comment on view public.road_priorities is
-  'Road damage percentage = sum of non-duplicate measured pothole areas / road length-width surface area; score bands follow MORIS.';
+  'Road damage percentage = sum of non-duplicate measured pothole areas / road length-width surface area; score bands use 10 percent intervals.';
 
 notify pgrst, 'reload schema';
